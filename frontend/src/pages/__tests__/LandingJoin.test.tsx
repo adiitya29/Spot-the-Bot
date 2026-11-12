@@ -3,10 +3,27 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useRoomStore } from "../../features/room/roomStore";
 import { loadRoomSession } from "../../lib/api";
 import { Join } from "../Join";
 import { Landing } from "../Landing";
 import { Room } from "../Room";
+
+class MockWebSocket {
+  static CONNECTING = 0;
+  static OPEN = 1;
+  static CLOSING = 2;
+  static CLOSED = 3;
+  readyState = MockWebSocket.CONNECTING;
+  onopen: (() => void) | null = null;
+  onmessage: ((event: MessageEvent<string>) => void) | null = null;
+  onerror: (() => void) | null = null;
+  onclose: ((event: CloseEvent) => void) | null = null;
+  send = vi.fn();
+  close = vi.fn(() => {
+    this.readyState = MockWebSocket.CLOSED;
+  });
+}
 
 function renderWithRouter(initialPath: string) {
   const queryClient = new QueryClient({
@@ -30,6 +47,8 @@ function renderWithRouter(initialPath: string) {
 describe("Landing and Join flows", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    useRoomStore.getState().reset();
+    vi.stubGlobal("WebSocket", MockWebSocket);
   });
 
   afterEach(() => {
@@ -77,7 +96,7 @@ describe("Landing and Join flows", () => {
     await user.click(screen.getByRole("button", { name: "Create Room" }));
 
     expect(await screen.findByText("ROOM AB2C3D")).toBeInTheDocument();
-    expect(screen.getByText("Lobby Ready for Phase 2")).toBeInTheDocument();
+    expect(screen.getByText("Game Lobby")).toBeInTheDocument();
     expect(loadRoomSession("AB2C3D")).toEqual({
       roomCode: "AB2C3D",
       playerId: "p-host",
@@ -148,7 +167,7 @@ describe("Landing and Join flows", () => {
     await user.click(screen.getByRole("button", { name: "Join Lobby" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Lobby Ready for Phase 2")).toBeInTheDocument();
+      expect(screen.getByText("Game Lobby")).toBeInTheDocument();
     });
     expect(loadRoomSession("AB2C3D")?.token).toBe("signed-guest-token");
   });
