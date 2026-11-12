@@ -1,7 +1,15 @@
 import { computeClockOffset } from "../../lib/clockSync";
-import type { RoomAction, RoomState } from "./types";
+import type { LeaderboardEntry, LobbyPlayer, RoomAction, RoomState } from "./types";
 
 const TYPING_TTL_MS = 4000;
+
+function mergePlayerScores(players: LobbyPlayer[], leaderboard: LeaderboardEntry[]): LobbyPlayer[] {
+  const byId = new Map(leaderboard.map((entry) => [entry.player_id, entry]));
+  return players.map((player) => {
+    const updated = byId.get(player.id);
+    return updated ? { ...player, score: updated.score } : player;
+  });
+}
 
 export const initialRoomState: RoomState = {
   socketStatus: "connecting",
@@ -30,6 +38,11 @@ export const initialRoomState: RoomState = {
   answers: [],
   messages: [],
   typingSeats: {},
+  votesCast: 0,
+  totalHumans: 0,
+  myVoteTargetSeatId: null,
+  reveal: null,
+  gameOver: null,
 };
 
 function isStaleEvent(lastSeq: number | null, eventSeq: number): boolean {
@@ -72,6 +85,11 @@ export function roomReducer(state: RoomState, action: RoomAction): RoomState {
         answers: isLobby ? [] : (payload.answers ?? []),
         messages: isLobby ? [] : (payload.messages ?? []),
         typingSeats: {},
+        votesCast: isLobby ? 0 : (payload.votes_cast ?? 0),
+        totalHumans: isLobby ? 0 : (payload.total_humans ?? 0),
+        myVoteTargetSeatId: isLobby ? null : (payload.my_vote_target_seat_id ?? null),
+        reveal: isLobby ? null : (payload.reveal ?? null),
+        gameOver: isLobby ? null : (payload.game_over ?? null),
       };
     }
 
@@ -123,6 +141,34 @@ export function roomReducer(state: RoomState, action: RoomAction): RoomState {
         return state;
       }
       const { payload } = action;
+      if (payload.phase === "lobby") {
+        return {
+          ...state,
+          status: "lobby",
+          phase: "lobby",
+          roundId: null,
+          roundNumber: 0,
+          totalRounds: payload.total_rounds,
+          phaseEndsAtMs: null,
+          clockOffsetMs: computeClockOffset(payload.server_time, action.localNowMs),
+          topic: null,
+          seats: [],
+          mySeatId: null,
+          hasAnswered: false,
+          myAnswer: null,
+          readyToVote: false,
+          answers: [],
+          messages: [],
+          typingSeats: {},
+          votesCast: 0,
+          totalHumans: 0,
+          myVoteTargetSeatId: null,
+          reveal: null,
+          gameOver: null,
+          lastError: null,
+          lastSeq: action.seq,
+        };
+      }
       const isNewRoundAnswer = payload.phase === "answer" && payload.round_id !== state.roundId;
       return {
         ...state,
@@ -141,6 +187,9 @@ export function roomReducer(state: RoomState, action: RoomAction): RoomState {
         answers: isNewRoundAnswer ? [] : state.answers,
         messages: isNewRoundAnswer ? [] : state.messages,
         typingSeats: {},
+        votesCast: isNewRoundAnswer ? 0 : state.votesCast,
+        myVoteTargetSeatId: isNewRoundAnswer ? null : state.myVoteTargetSeatId,
+        reveal: isNewRoundAnswer ? null : state.reveal,
         lastSeq: action.seq,
       };
     }
@@ -172,6 +221,43 @@ export function roomReducer(state: RoomState, action: RoomAction): RoomState {
         ...state,
         messages: alreadyPresent ? state.messages : [...state.messages, msg],
         typingSeats: nextTyping,
+        lastSeq: action.seq,
+      };
+    }
+
+    case "vote_progress": {
+      if (isStaleEvent(state.lastSeq, action.seq)) {
+        return state;
+      }
+      return {
+        ...state,
+        votesCast: action.payload.votes_cast,
+        totalHumans: action.payload.total_humans,
+        lastSeq: action.seq,
+      };
+    }
+
+    case "reveal": {
+      if (isStaleEvent(state.lastSeq, action.seq)) {
+        return state;
+      }
+      return {
+        ...state,
+        reveal: action.payload,
+        players: mergePlayerScores(state.players, action.payload.leaderboard),
+        lastSeq: action.seq,
+      };
+    }
+
+    case "game_over": {
+      if (isStaleEvent(state.lastSeq, action.seq)) {
+        return state;
+      }
+      return {
+        ...state,
+        status: "finished",
+        gameOver: action.payload,
+        players: mergePlayerScores(state.players, action.payload.leaderboard),
         lastSeq: action.seq,
       };
     }
@@ -215,15 +301,28 @@ export function roomReducer(state: RoomState, action: RoomAction): RoomState {
         lastError: null,
       };
 
+    case "vote_cast_local":
+      return {
+        ...state,
+        myVoteTargetSeatId: action.targetSeatId,
+        lastError: null,
+      };
+
     case "server_error": {
       const rollbackAnswer =
         state.phase === "answer" &&
         (action.payload.code === "empty_text" ||
           action.payload.code === "text_too_long" ||
           action.payload.code === "invalid_payload");
+      const rollbackVote =
+        state.phase === "vote" &&
+        (action.payload.code === "invalid_target" ||
+          action.payload.code === "self_vote" ||
+          action.payload.code === "invalid_phase");
       return {
         ...state,
         hasAnswered: rollbackAnswer ? false : state.hasAnswered,
+        myVoteTargetSeatId: rollbackVote ? null : state.myVoteTargetSeatId,
         lastError: action.payload,
       };
     }

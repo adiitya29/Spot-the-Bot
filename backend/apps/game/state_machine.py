@@ -16,24 +16,33 @@ from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
+from apps.bot.stub import pick_stub_answer
 from apps.common.events import append_event, build_envelope, utc_now_ms
 from apps.common.locks import room_lock
 from apps.game.aliases import assign_round_aliases
-from apps.game.models import Message, MessageKind, Round, RoundPhase, RoundSeat, Topic
+from apps.game.models import (
+    Message,
+    MessageKind,
+    Round,
+    RoundPhase,
+    RoundResult,
+    RoundSeat,
+    Topic,
+    Vote,
+)
 from apps.game.rate_limits import check_chat_rate_limit
 from apps.game.scheduler import cancel_phase_deadline, schedule_phase_deadline
+from apps.game.scoring import (
+    build_game_over_payload,
+    build_reveal_payload,
+    finalize_round_scores,
+)
 from apps.rooms.models import DEFAULT_PHASE_DURATIONS, Player, Room, RoomStatus
 from scripts.seed_topics import ensure_topics_seeded
 
 logger = logging.getLogger(__name__)
 
 MAX_GAME_TEXT_LENGTH = 280
-STUB_BOT_ANSWERS: tuple[str, ...] = (
-    "Honestly depends on the day, could go either way tbh",
-    "I think about this way too much and still have no solid excuse lol",
-    "Not gonna lie I am lowkey guilty of this exact thing",
-    "Wait why does everyone suddenly have strong feelings about this",
-)
 
 
 class GameTransitionError(Exception):
@@ -182,17 +191,79 @@ def _ensure_bot_answer_before_chat(round_obj: Round, *, rng: random.Random | Non
         return
     if Message.objects.filter(round=round_obj, seat=bot_seat, kind=MessageKind.ANSWER).exists():
         return
-    chooser = rng or random.SystemRandom()
-    text = chooser.choice(STUB_BOT_ANSWERS)
+    text = pick_stub_answer(round_obj, rng=rng)
     Message.objects.create(
         round=round_obj,
         seat=bot_seat,
         text=text,
         kind=MessageKind.ANSWER,
-        meta={"source": "phase3_stub"},
+        meta={"source": "phase4_stub"},
     )
     bot_seat.has_answered = True
     bot_seat.save(update_fields=["has_answered"])
+
+
+def _get_or_create_bot_player(room: Room) -> Player:
+    bot_player = room.players.filter(is_bot=True).first()
+    if bot_player is None:
+        bot_player = Player.objects.create(
+            room=room,
+            nickname="Bot",
+            is_bot=True,
+            is_host=False,
+            connected=True,
+        )
+    return bot_player
+
+
+def _create_round_with_seats(
+    room: Room,
+    *,
+    game_index: int,
+    round_number: int,
+    current_now: datetime,
+    humans: list[Player] | None = None,
+    rng: random.Random | None = None,
+) -> tuple[Round, list[RoundSeat], datetime]:
+    """Create a new Round in ANSWER phase with shuffled per-round human + bot seats."""
+    human_list = (
+        humans
+        if humans is not None
+        else list(room.players.filter(is_bot=False, connected=True).order_by("joined_at"))
+    )
+    if not human_list:
+        human_list = list(room.players.filter(is_bot=False).order_by("joined_at"))
+
+    bot_player = _get_or_create_bot_player(room)
+    topic = _select_topic(room, game_index=game_index, rng=rng)
+    answer_seconds = _phase_duration_seconds(room, RoundPhase.ANSWER)
+    ends_at = current_now + timedelta(seconds=answer_seconds)
+
+    round_obj = Round.objects.create(
+        room=room,
+        game_index=game_index,
+        number=round_number,
+        topic=topic,
+        phase=RoundPhase.ANSWER,
+        phase_started_at=current_now,
+        phase_ends_at=ends_at,
+    )
+
+    participants: list[Player] = [*human_list, bot_player]
+    aliases = assign_round_aliases(len(participants), rng=rng)
+    seats_to_create = [
+        RoundSeat(
+            round=round_obj,
+            player=participant,
+            alias=assigned.alias,
+            color_index=assigned.color_index,
+            order_index=assigned.order_index,
+        )
+        for participant, assigned in zip(participants, aliases, strict=True)
+    ]
+    RoundSeat.objects.bulk_create(seats_to_create)
+    seats = list(round_obj.seats.order_by("order_index", "id"))
+    return round_obj, seats, ends_at
 
 
 def start_game(
@@ -228,53 +299,24 @@ def start_game(
                 f"Need at least {room.min_humans} connected players to start.",
             )
 
-        bot_player = room.players.filter(is_bot=True).first()
-        if bot_player is None:
-            bot_player = Player.objects.create(
-                room=room,
-                nickname="Bot",
-                is_bot=True,
-                is_host=False,
-                connected=True,
-            )
-
         last_game_index = (
             room.rounds.order_by("-game_index").values_list("game_index", flat=True).first() or 0
         )
         game_index = last_game_index + 1
 
-        topic = _select_topic(room, game_index=game_index, rng=rng)
-        answer_seconds = _phase_duration_seconds(room, RoundPhase.ANSWER)
-        ends_at = current_now + timedelta(seconds=answer_seconds)
-
         room.status = RoomStatus.IN_PROGRESS
         room.started_at = current_now
-        room.save(update_fields=["status", "started_at"])
+        room.finished_at = None
+        room.save(update_fields=["status", "started_at", "finished_at"])
 
-        round_obj = Round.objects.create(
-            room=room,
+        round_obj, seats, ends_at = _create_round_with_seats(
+            room,
             game_index=game_index,
-            number=1,
-            topic=topic,
-            phase=RoundPhase.ANSWER,
-            phase_started_at=current_now,
-            phase_ends_at=ends_at,
+            round_number=1,
+            current_now=current_now,
+            humans=connected_humans,
+            rng=rng,
         )
-
-        participants: list[Player] = [*connected_humans, bot_player]
-        aliases = assign_round_aliases(len(participants), rng=rng)
-        seats_to_create = [
-            RoundSeat(
-                round=round_obj,
-                player=participant,
-                alias=assigned.alias,
-                color_index=assigned.color_index,
-                order_index=assigned.order_index,
-            )
-            for participant, assigned in zip(participants, aliases, strict=True)
-        ]
-        RoundSeat.objects.bulk_create(seats_to_create)
-        seats = list(round_obj.seats.order_by("order_index", "id"))
 
         payload = _phase_changed_payload(room, round_obj, seats, now=current_now)
         event = append_event(room.id, "phase_changed", payload, round_id=round_obj.id)
@@ -525,6 +567,183 @@ def mark_ready_to_vote(
     return should_advance
 
 
+def cast_vote(
+    room_id: UUID,
+    player_id: UUID,
+    raw_target_seat_id: Any,
+    *,
+    clock: Callable[[], datetime] | None = None,
+    rng: random.Random | None = None,
+) -> dict[str, Any]:
+    """Cast a human ballot during VOTE; advance early to REVEAL when all humans vote."""
+    if not isinstance(raw_target_seat_id, str):
+        raise GameTransitionError("invalid_target", "A valid target seat ID is required.")
+    try:
+        target_seat_uuid = UUID(raw_target_seat_id)
+    except ValueError as exc:
+        raise GameTransitionError("invalid_target", "Invalid target seat ID.") from exc
+
+    now_fn = clock or timezone.now
+    current_now = now_fn()
+    should_advance = False
+    round_id: UUID
+
+    with room_lock(room_id), transaction.atomic():
+        room = Room.objects.select_for_update().get(id=room_id)
+        round_obj = (
+            Round.objects.select_for_update()
+            .filter(room=room)
+            .order_by("-game_index", "-number")
+            .first()
+        )
+        if room.status != RoomStatus.IN_PROGRESS or round_obj is None:
+            raise GameTransitionError("invalid_phase", "Room is not in an active round.")
+        if round_obj.phase != RoundPhase.VOTE:
+            raise GameTransitionError("invalid_phase", "Voting is only open during the VOTE phase.")
+
+        voter_seat = (
+            RoundSeat.objects.select_for_update()
+            .filter(
+                round=round_obj,
+                player_id=player_id,
+                player__is_bot=False,
+            )
+            .first()
+        )
+        if voter_seat is None:
+            raise GameTransitionError("not_seated", "You are not seated in this round.")
+
+        target_seat = RoundSeat.objects.filter(round=round_obj, id=target_seat_uuid).first()
+        if target_seat is None:
+            raise GameTransitionError("invalid_target", "Selected player is not in this round.")
+
+        if target_seat.id == voter_seat.id:
+            raise GameTransitionError("self_vote", "You cannot vote for yourself.")
+
+        if Vote.objects.filter(round=round_obj, voter_seat=voter_seat).exists():
+            raise GameTransitionError("already_voted", "You have already locked in your vote.")
+
+        try:
+            Vote.objects.create(
+                round=round_obj,
+                voter_seat=voter_seat,
+                target_seat=target_seat,
+            )
+        except IntegrityError as exc:
+            raise GameTransitionError(
+                "already_voted",
+                "You have already locked in your vote.",
+            ) from exc
+
+        votes_cast = Vote.objects.filter(
+            round=round_obj,
+            voter_seat__player__is_bot=False,
+        ).count()
+        total_humans = round_obj.seats.filter(player__is_bot=False).count()
+        should_advance = votes_cast >= total_humans
+        round_id = round_obj.id
+
+        progress_payload = {
+            "round_id": str(round_obj.id),
+            "votes_cast": votes_cast,
+            "total_humans": total_humans,
+        }
+        event = append_event(room.id, "vote_progress", progress_payload, round_id=round_obj.id)
+        envelope = build_envelope("vote_progress", progress_payload, seq=event.seq)
+
+        def _after_commit() -> None:
+            _group_send_room(
+                room.code,
+                {
+                    "type": "room.event",
+                    "sender_channel": "",
+                    "envelope": envelope,
+                },
+            )
+
+        transaction.on_commit(_after_commit)
+
+    if should_advance:
+        advance_phase(
+            round_id,
+            expected_phase=RoundPhase.VOTE,
+            reason="all_voted",
+            clock=lambda: current_now,
+            rng=rng,
+        )
+
+    return {
+        "votes_cast": votes_cast,
+        "total_humans": total_humans,
+        "all_voted": should_advance,
+        "envelope": envelope,
+    }
+
+
+def play_again(
+    room_id: UUID,
+    triggered_by_player_id: UUID,
+    *,
+    clock: Callable[[], datetime] | None = None,
+) -> dict[str, Any]:
+    """Reset a FINISHED room back to LOBBY for a fresh rematch while preserving history."""
+    now_fn = clock or timezone.now
+    current_now = now_fn()
+
+    with room_lock(room_id), transaction.atomic():
+        room = Room.objects.select_for_update().get(id=room_id)
+        if room.status != RoomStatus.FINISHED:
+            raise GameTransitionError(
+                "invalid_phase",
+                "You can only play again after the current game finishes.",
+            )
+
+        host = Player.objects.filter(
+            id=triggered_by_player_id,
+            room=room,
+            is_bot=False,
+        ).first()
+        if host is None or not host.is_host:
+            raise GameTransitionError("not_host", "Only the room host can start a new game.")
+
+        last_game_index = (
+            room.rounds.order_by("-game_index").values_list("game_index", flat=True).first() or 0
+        )
+
+        room.status = RoomStatus.LOBBY
+        room.started_at = None
+        room.finished_at = None
+        room.save(update_fields=["status", "started_at", "finished_at"])
+
+        Player.objects.filter(room=room).update(score=0)
+
+        payload = {
+            "round_id": None,
+            "game_index": last_game_index,
+            "round_number": 0,
+            "total_rounds": int(room.config.get("rounds", 3)),
+            "phase": "lobby",
+            "ends_at": None,
+            "server_time": int(current_now.timestamp() * 1000),
+            "topic": None,
+            "seats": [],
+        }
+        event = append_event(room.id, "phase_changed", payload)
+        envelope = build_envelope("phase_changed", payload, seq=event.seq)
+
+        def _after_commit() -> None:
+            _group_send_room(
+                room.code,
+                {
+                    "type": "room.round_started",
+                    "envelope": envelope,
+                },
+            )
+
+        transaction.on_commit(_after_commit)
+        return envelope
+
+
 def advance_phase(
     round_id: UUID,
     *,
@@ -561,8 +780,10 @@ def advance_phase(
 
         seats = list(round_obj.seats.order_by("order_index", "id"))
         emitted: list[dict[str, Any]] = []
+        dispatches: list[dict[str, Any]] = []
         old_phase = round_obj.phase
-        next_deadline: tuple[str, datetime] | None = None
+        new_phase_value: str = round_obj.phase
+        next_deadline: tuple[UUID, str, datetime] | None = None
 
         if round_obj.phase == RoundPhase.ANSWER:
             _ensure_bot_answer_before_chat(round_obj, rng=rng)
@@ -581,7 +802,9 @@ def advance_phase(
                 answers_payload,
                 round_id=round_obj.id,
             )
-            emitted.append(build_envelope("answers_revealed", answers_payload, seq=ev_answers.seq))
+            env_answers = build_envelope("answers_revealed", answers_payload, seq=ev_answers.seq)
+            emitted.append(env_answers)
+            dispatches.append({"type": "room.event", "sender_channel": "", "envelope": env_answers})
 
             chat_seconds = _phase_duration_seconds(room, RoundPhase.CHAT)
             ends_at = current_now + timedelta(seconds=chat_seconds)
@@ -604,8 +827,11 @@ def advance_phase(
                 phase_payload,
                 round_id=round_obj.id,
             )
-            emitted.append(build_envelope("phase_changed", phase_payload, seq=ev_phase.seq))
-            next_deadline = (RoundPhase.CHAT, ends_at)
+            env_phase = build_envelope("phase_changed", phase_payload, seq=ev_phase.seq)
+            emitted.append(env_phase)
+            dispatches.append({"type": "room.event", "sender_channel": "", "envelope": env_phase})
+            new_phase_value = RoundPhase.CHAT
+            next_deadline = (round_obj.id, RoundPhase.CHAT, ends_at)
 
         elif round_obj.phase == RoundPhase.CHAT:
             vote_seconds = _phase_duration_seconds(room, RoundPhase.VOTE)
@@ -622,19 +848,30 @@ def advance_phase(
                 phase_payload,
                 round_id=round_obj.id,
             )
-            emitted.append(build_envelope("phase_changed", phase_payload, seq=ev_phase.seq))
-            next_deadline = (RoundPhase.VOTE, ends_at)
+            env_phase = build_envelope("phase_changed", phase_payload, seq=ev_phase.seq)
+            emitted.append(env_phase)
+            dispatches.append({"type": "room.event", "sender_channel": "", "envelope": env_phase})
+            new_phase_value = RoundPhase.VOTE
+            next_deadline = (round_obj.id, RoundPhase.VOTE, ends_at)
 
-        elif round_obj.phase in {RoundPhase.VOTE, RoundPhase.REVEAL}:
-            # Expanded in Phase 4 with vote resolution, scoring, reveal, and multi-round looping.
-            round_obj.phase = RoundPhase.DONE
+        elif round_obj.phase == RoundPhase.VOTE:
+            reveal_payload = finalize_round_scores(round_obj)
+            reveal_seconds = _phase_duration_seconds(room, RoundPhase.REVEAL)
+            ends_at = current_now + timedelta(seconds=reveal_seconds)
+            round_obj.phase = RoundPhase.REVEAL
             round_obj.phase_started_at = current_now
-            round_obj.phase_ends_at = current_now
+            round_obj.phase_ends_at = ends_at
             round_obj.save(update_fields=["phase", "phase_started_at", "phase_ends_at"])
 
-            room.status = RoomStatus.FINISHED
-            room.finished_at = current_now
-            room.save(update_fields=["status", "finished_at"])
+            ev_reveal = append_event(
+                room.id,
+                "reveal",
+                reveal_payload,
+                round_id=round_obj.id,
+            )
+            env_reveal = build_envelope("reveal", reveal_payload, seq=ev_reveal.seq)
+            emitted.append(env_reveal)
+            dispatches.append({"type": "room.event", "sender_channel": "", "envelope": env_reveal})
 
             phase_payload = _phase_changed_payload(room, round_obj, seats, now=current_now)
             ev_phase = append_event(
@@ -643,23 +880,80 @@ def advance_phase(
                 phase_payload,
                 round_id=round_obj.id,
             )
-            emitted.append(build_envelope("phase_changed", phase_payload, seq=ev_phase.seq))
+            env_phase = build_envelope("phase_changed", phase_payload, seq=ev_phase.seq)
+            emitted.append(env_phase)
+            dispatches.append({"type": "room.event", "sender_channel": "", "envelope": env_phase})
+            new_phase_value = RoundPhase.REVEAL
+            next_deadline = (round_obj.id, RoundPhase.REVEAL, ends_at)
+
+        elif round_obj.phase == RoundPhase.REVEAL:
+            round_obj.phase = RoundPhase.DONE
+            round_obj.phase_ends_at = current_now
+            round_obj.save(update_fields=["phase", "phase_ends_at"])
+
+            total_rounds = int(room.config.get("rounds", 3))
+            if round_obj.number < total_rounds:
+                next_round, next_seats, ends_at = _create_round_with_seats(
+                    room,
+                    game_index=round_obj.game_index,
+                    round_number=round_obj.number + 1,
+                    current_now=current_now,
+                    rng=rng,
+                )
+                phase_payload = _phase_changed_payload(
+                    room, next_round, next_seats, now=current_now
+                )
+                ev_phase = append_event(
+                    room.id,
+                    "phase_changed",
+                    phase_payload,
+                    round_id=next_round.id,
+                )
+                env_phase = build_envelope("phase_changed", phase_payload, seq=ev_phase.seq)
+                emitted.append(env_phase)
+                dispatches.append({"type": "room.round_started", "envelope": env_phase})
+                new_phase_value = RoundPhase.ANSWER
+                next_deadline = (next_round.id, RoundPhase.ANSWER, ends_at)
+            else:
+                room.status = RoomStatus.FINISHED
+                room.finished_at = current_now
+                room.save(update_fields=["status", "finished_at"])
+
+                phase_payload = _phase_changed_payload(room, round_obj, seats, now=current_now)
+                ev_phase = append_event(
+                    room.id,
+                    "phase_changed",
+                    phase_payload,
+                    round_id=round_obj.id,
+                )
+                env_phase = build_envelope("phase_changed", phase_payload, seq=ev_phase.seq)
+                emitted.append(env_phase)
+                dispatches.append(
+                    {"type": "room.event", "sender_channel": "", "envelope": env_phase}
+                )
+
+                game_over_payload = build_game_over_payload(room, game_index=round_obj.game_index)
+                ev_over = append_event(
+                    room.id,
+                    "game_over",
+                    game_over_payload,
+                    round_id=round_obj.id,
+                )
+                env_over = build_envelope("game_over", game_over_payload, seq=ev_over.seq)
+                emitted.append(env_over)
+                dispatches.append(
+                    {"type": "room.event", "sender_channel": "", "envelope": env_over}
+                )
+                new_phase_value = RoundPhase.DONE
         else:
             return None
 
         def _after_commit() -> None:
             cancel_phase_deadline(round_obj.id, old_phase)
             if next_deadline is not None:
-                schedule_phase_deadline(round_obj.id, next_deadline[0], next_deadline[1])
-            for env in emitted:
-                _group_send_room(
-                    room.code,
-                    {
-                        "type": "room.event",
-                        "sender_channel": "",
-                        "envelope": env,
-                    },
-                )
+                schedule_phase_deadline(next_deadline[0], next_deadline[1], next_deadline[2])
+            for dispatch_msg in dispatches:
+                _group_send_room(room.code, dispatch_msg)
 
         transaction.on_commit(_after_commit)
         logger.debug(
@@ -667,10 +961,10 @@ def advance_phase(
             room.code,
             round_obj.id,
             old_phase,
-            round_obj.phase,
+            new_phase_value,
             reason,
         )
-        return {"new_phase": round_obj.phase, "envelopes": emitted}
+        return {"new_phase": new_phase_value, "envelopes": emitted}
 
 
 def get_active_seat_for_player(room_id: UUID, player_id: UUID) -> tuple[Round, RoundSeat] | None:
@@ -751,6 +1045,31 @@ def build_room_snapshot_payload(
                 .order_by("id")
             ]
 
+            total_humans = active_round.seats.filter(player__is_bot=False).count()
+            votes_cast = Vote.objects.filter(
+                round=active_round,
+                voter_seat__player__is_bot=False,
+            ).count()
+            my_vote = (
+                Vote.objects.filter(round=active_round, voter_seat=my_seat).first()
+                if my_seat is not None
+                else None
+            )
+
+            reveal_payload: dict[str, Any] | None = None
+            if (
+                active_round.phase in {RoundPhase.REVEAL, RoundPhase.DONE}
+                and RoundResult.objects.filter(round=active_round).exists()
+            ):
+                reveal_payload = build_reveal_payload(active_round)
+
+            game_over_payload: dict[str, Any] | None = None
+            if room.status == RoomStatus.FINISHED:
+                game_over_payload = build_game_over_payload(
+                    room,
+                    game_index=active_round.game_index,
+                )
+
             payload.update(
                 {
                     "phase": active_round.phase,
@@ -766,6 +1085,13 @@ def build_room_snapshot_payload(
                     "ready_to_vote": bool(my_seat and my_seat.ready_to_vote),
                     "answers": answers,
                     "messages": messages,
+                    "votes_cast": votes_cast,
+                    "total_humans": total_humans,
+                    "my_vote_target_seat_id": (
+                        str(my_vote.target_seat_id) if my_vote is not None else None
+                    ),
+                    "reveal": reveal_payload,
+                    "game_over": game_over_payload,
                 }
             )
 

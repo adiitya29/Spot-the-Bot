@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 
 from django.db import models
-from django.db.models import Q
+from django.db.models import F, Q
 
 
 class TopicCategory(models.TextChoices):
@@ -152,3 +152,66 @@ class Message(models.Model):
 
     def __str__(self) -> str:
         return f"Message({self.kind}, id={self.id}, seat={self.seat_id})"
+
+
+class Vote(models.Model):
+    """Secret ballot cast by one human RoundSeat during the VOTE phase."""
+
+    id = models.BigAutoField(primary_key=True)
+    round = models.ForeignKey(Round, on_delete=models.CASCADE, related_name="votes")
+    voter_seat = models.ForeignKey(
+        RoundSeat,
+        on_delete=models.CASCADE,
+        related_name="votes_cast",
+    )
+    target_seat = models.ForeignKey(
+        RoundSeat,
+        on_delete=models.CASCADE,
+        related_name="votes_received",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["round", "voter_seat"],
+                name="unique_vote_per_voter_per_round",
+            ),
+            models.CheckConstraint(
+                condition=~Q(voter_seat=F("target_seat")),
+                name="prevent_self_vote",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"Vote(round={self.round_id}, voter={self.voter_seat_id} -> {self.target_seat_id})"
+
+
+class RoundResult(models.Model):
+    """Finalized vote outcome and bot-survival record created on REVEAL."""
+
+    round = models.OneToOneField(
+        Round,
+        on_delete=models.CASCADE,
+        related_name="result",
+        primary_key=True,
+    )
+    bot_seat = models.ForeignKey(
+        RoundSeat,
+        on_delete=models.PROTECT,
+        related_name="bot_round_results",
+    )
+    votes_for_bot = models.PositiveSmallIntegerField(default=0)
+    human_voters = models.PositiveSmallIntegerField(default=0)
+    bot_fooled = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return (
+            f"RoundResult(round={self.round_id}, votes_for_bot={self.votes_for_bot}/"
+            f"{self.human_voters}, fooled={self.bot_fooled})"
+        )

@@ -146,13 +146,21 @@ def test_state_machine_full_answer_chat_transitions_with_injected_clock() -> Non
     round_obj.refresh_from_db()
     assert round_obj.phase == RoundPhase.VOTE
 
-    # Advancing VOTE reaches Phase 3 DONE stub cleanly
+    # Advancing VOTE reaches REVEAL with RoundResult recorded cleanly
     now_holder[0] = base_time + timedelta(seconds=80)
-    done_res = advance_phase(round_obj.id, expected_phase=RoundPhase.VOTE, clock=clock)
-    assert done_res is not None
-    assert done_res["new_phase"] == RoundPhase.DONE
-    room.refresh_from_db()
-    assert room.status == RoomStatus.FINISHED
+    reveal_res = advance_phase(round_obj.id, expected_phase=RoundPhase.VOTE, clock=clock)
+    assert reveal_res is not None
+    assert reveal_res["new_phase"] == RoundPhase.REVEAL
+    round_obj.refresh_from_db()
+    assert round_obj.phase == RoundPhase.REVEAL
+    assert [e["type"] for e in reveal_res["envelopes"]] == ["reveal", "phase_changed"]
+
+    # Advancing REVEAL before final round starts Round 2 ANSWER
+    now_holder[0] = base_time + timedelta(seconds=95)
+    next_res = advance_phase(round_obj.id, expected_phase=RoundPhase.REVEAL, clock=clock, rng=rng)
+    assert next_res is not None
+    assert next_res["new_phase"] == RoundPhase.ANSWER
+    assert Round.objects.filter(room=room, game_index=1).count() == 2
 
 
 @pytest.mark.django_db(transaction=True)

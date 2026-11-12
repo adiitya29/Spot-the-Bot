@@ -2,9 +2,12 @@ import { useEffect } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { AnswerBox } from "../features/room/components/AnswerBox";
 import { ChatPanel } from "../features/room/components/ChatPanel";
+import { Leaderboard } from "../features/room/components/Leaderboard";
 import { Lobby } from "../features/room/components/Lobby";
 import { PhaseHeader } from "../features/room/components/PhaseHeader";
+import { RevealStage } from "../features/room/components/RevealStage";
 import { TopicCard } from "../features/room/components/TopicCard";
+import { VotePanel } from "../features/room/components/VotePanel";
 import { useRoomStore } from "../features/room/roomStore";
 import { useRoomSocket } from "../features/room/useRoomSocket";
 import { loadRoomSession } from "../lib/api";
@@ -54,6 +57,8 @@ export function Room() {
 
   const isOnline = roomState.socketStatus === "connected";
   const mySeat = roomState.seats.find((s) => s.seat_id === roomState.mySeatId) ?? null;
+  const me = roomState.players.find((p) => p.id === roomState.myPlayerId) ?? null;
+  const isHost = Boolean(me?.is_host);
 
   return (
     <main className="mx-auto flex min-h-screen max-w-lg flex-col gap-3 px-4 py-5">
@@ -154,13 +159,45 @@ export function Room() {
         />
       ) : null}
 
-      {roomState.phase === "vote" || roomState.phase === "reveal" || roomState.phase === "done" ? (
-        <section className="rounded-2xl border border-slate-800 bg-slate-900/95 p-5 text-center shadow-lg">
-          <h2 className="text-base font-semibold text-white">Voting &amp; Reveal Next</h2>
-          <p className="mt-1 text-xs text-slate-400">
-            Voting, bot reveal, and round scoring will be enabled in Phase 4.
-          </p>
-        </section>
+      {roomState.phase === "vote" ? (
+        <VotePanel
+          seats={roomState.seats}
+          mySeatId={roomState.mySeatId}
+          answers={roomState.answers}
+          votesCast={roomState.votesCast}
+          totalHumans={roomState.totalHumans}
+          myVoteTargetSeatId={roomState.myVoteTargetSeatId}
+          disabled={!isOnline}
+          onCastVote={(targetSeatId) => {
+            if (sendCommand("cast_vote", { target_seat_id: targetSeatId })) {
+              roomState.dispatch({ type: "vote_cast_local", targetSeatId });
+            }
+          }}
+        />
+      ) : null}
+
+      {roomState.phase === "reveal" && roomState.reveal ? (
+        <RevealStage
+          reveal={roomState.reveal}
+          mySeatId={roomState.mySeatId}
+          myPlayerId={roomState.myPlayerId}
+        />
+      ) : null}
+
+      {roomState.phase === "done" && roomState.gameOver ? (
+        <Leaderboard
+          entries={roomState.gameOver.leaderboard}
+          myPlayerId={roomState.myPlayerId}
+          roundsSummary={roomState.gameOver.rounds_summary}
+          botFooledCount={roomState.gameOver.bot_fooled_count}
+          totalRounds={roomState.gameOver.total_rounds}
+          isGameOver
+          isHost={isHost}
+          disabled={!isOnline}
+          onPlayAgain={() => {
+            sendCommand("play_again", {});
+          }}
+        />
       ) : null}
     </main>
   );
