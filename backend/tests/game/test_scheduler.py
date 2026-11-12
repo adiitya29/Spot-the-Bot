@@ -142,4 +142,3 @@ def test_run_scheduler_once_command_advances_expired_round() -> None:
 
     round_obj.refresh_from_db()
     assert round_obj.phase == RoundPhase.CHAT
-

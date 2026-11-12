@@ -17,4 +17,3 @@ describe("clockSync helpers", () => {
     expect(formatCountdown(0)).toBe("0:00");
   });
 });
-

@@ -128,4 +128,3 @@ def check_typing_rate_limit(room_id: UUID, player_id: UUID) -> RateLimitResult:
         window_seconds=float(getattr(settings, "TYPING_RATE_LIMIT_WINDOW_SECONDS", 2.0)),
     )
     return limiter.allow(f"stb:rl:typing:{room_id}:{player_id}")
-

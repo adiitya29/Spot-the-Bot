@@ -22,4 +22,3 @@ export function TopicCard({ topic }: TopicCardProps) {
     </section>
   );
 }
-

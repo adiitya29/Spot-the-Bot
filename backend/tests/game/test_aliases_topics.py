@@ -49,4 +49,3 @@ def test_seed_topics_creates_40_topics_idempotently() -> None:
         TopicCategory.OPINION,
         TopicCategory.STORY,
     }
-

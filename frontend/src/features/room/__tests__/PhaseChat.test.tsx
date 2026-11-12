@@ -105,4 +105,3 @@ describe("Phase 3 gameplay components", () => {
     expect(onReadyToVote).toHaveBeenCalledTimes(1);
   });
 });
-
