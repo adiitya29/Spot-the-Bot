@@ -1,13 +1,14 @@
 import { create } from "zustand";
-import { initialRoomState, roomReducer, type RoomEvent, type RoomState } from "./reducer";
+import { initialRoomState, roomReducer } from "./reducer";
+import type { RoomAction, RoomState } from "./types";
 
 interface RoomStore extends RoomState {
-  dispatch: (event: RoomEvent) => void;
+  dispatch: (action: RoomAction) => void;
   reset: () => void;
 }
 
 export const useRoomStore = create<RoomStore>((set) => ({
   ...initialRoomState,
-  dispatch: (event) => set((state) => roomReducer(state, event)),
+  dispatch: (action) => set((state) => roomReducer(state, action)),
   reset: () => set(initialRoomState),
 }));

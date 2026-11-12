@@ -1,53 +1,214 @@
 import { useCallback, useEffect, useRef } from "react";
-import { WS_ECHO_PATH } from "../../lib/constants";
+import { PROTOCOL_VERSION, normalizeRoomCode } from "../../lib/constants";
 import { useRoomStore } from "./roomStore";
+import type {
+  ErrorPayload,
+  PlayerJoinedPayload,
+  PlayerLeftPayload,
+  PresencePayload,
+  RoomSnapshotPayload,
+  WsEnvelope,
+} from "./types";
 
-interface EchoFrame {
-  v: number;
-  type: string;
-  payload: unknown;
+const PING_INTERVAL_MS = 20_000;
+const MAX_BACKOFF_MS = 15_000;
+const CLOSE_REPLACED = 4001;
+const CLOSE_AUTH_FAILED = 4401;
+const CLOSE_FORBIDDEN = 4403;
+const CLOSE_SEQ_GAP = 4000;
+
+function nextClientId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `msg-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-export function useRoomSocket() {
+export function computeReconnectDelay(attempt: number, rng: () => number = Math.random): number {
+  const base = Math.min(MAX_BACKOFF_MS, 500 * 2 ** attempt);
+  const jitter = Math.floor(rng() * 400);
+  return Math.min(MAX_BACKOFF_MS, base + jitter);
+}
+
+export function useRoomSocket(roomCode: string, token: string | null) {
   const socketRef = useRef<WebSocket | null>(null);
   const dispatch = useRoomStore((s) => s.dispatch);
+  const reset = useRoomStore((s) => s.reset);
+  const normalizedCode = normalizeRoomCode(roomCode);
 
   useEffect(() => {
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const url = `${protocol}//${window.location.host}${WS_ECHO_PATH}`;
-    const ws = new WebSocket(url);
-    socketRef.current = ws;
+    if (!normalizedCode || !token) {
+      return;
+    }
 
-    ws.onopen = () => {
-      dispatch({ type: "ws_connected" });
-    };
+    let disposed = false;
+    let attempt = 0;
+    let pingTimer: number | null = null;
+    let reconnectTimer: number | null = null;
 
-    ws.onmessage = (event: MessageEvent<string>) => {
-      try {
-        const frame = JSON.parse(event.data) as EchoFrame;
-        if (frame.type === "echo") {
-          dispatch({ type: "ws_echo", payload: JSON.stringify(frame.payload) });
-        }
-      } catch {
-        dispatch({ type: "ws_error" });
+    const clearTimers = () => {
+      if (pingTimer !== null) {
+        window.clearInterval(pingTimer);
+        pingTimer = null;
+      }
+      if (reconnectTimer !== null) {
+        window.clearTimeout(reconnectTimer);
+        reconnectTimer = null;
       }
     };
 
-    ws.onerror = () => {
-      dispatch({ type: "ws_error" });
+    const connect = () => {
+      if (disposed) {
+        return;
+      }
+      dispatch({ type: "ws_status", status: attempt === 0 ? "connecting" : "reconnecting" });
+
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const url = `${protocol}//${window.location.host}/ws/rooms/${encodeURIComponent(normalizedCode)}/?token=${encodeURIComponent(token)}`;
+      const ws = new WebSocket(url);
+      socketRef.current = ws;
+
+      ws.onopen = () => {
+        attempt = 0;
+        pingTimer = window.setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(
+              JSON.stringify({
+                v: PROTOCOL_VERSION,
+                id: nextClientId(),
+                type: "ping",
+                payload: {},
+              }),
+            );
+          }
+        }, PING_INTERVAL_MS);
+      };
+
+      ws.onmessage = (event: MessageEvent<string>) => {
+        let frame: WsEnvelope;
+        try {
+          frame = JSON.parse(event.data) as WsEnvelope;
+        } catch {
+          return;
+        }
+
+        if (frame.type === "pong") {
+          return;
+        }
+
+        if (frame.type === "room_snapshot") {
+          dispatch({
+            type: "room_snapshot",
+            seq: frame.seq,
+            payload: frame.payload as RoomSnapshotPayload,
+          });
+          return;
+        }
+
+        if (frame.type === "error") {
+          dispatch({
+            type: "server_error",
+            payload: frame.payload as ErrorPayload,
+          });
+          return;
+        }
+
+        const currentLastSeq = useRoomStore.getState().lastSeq;
+        if (typeof frame.seq === "number" && currentLastSeq !== null) {
+          if (frame.seq <= currentLastSeq) {
+            return;
+          }
+          if (frame.seq > currentLastSeq + 1) {
+            ws.close(CLOSE_SEQ_GAP, "seq_gap");
+            return;
+          }
+        }
+
+        if (typeof frame.seq !== "number") {
+          return;
+        }
+
+        switch (frame.type) {
+          case "player_joined":
+            dispatch({
+              type: "player_joined",
+              seq: frame.seq,
+              payload: frame.payload as PlayerJoinedPayload,
+            });
+            break;
+          case "player_left":
+            dispatch({
+              type: "player_left",
+              seq: frame.seq,
+              payload: frame.payload as PlayerLeftPayload,
+            });
+            break;
+          case "presence":
+            dispatch({
+              type: "presence",
+              seq: frame.seq,
+              payload: frame.payload as PresencePayload,
+            });
+            break;
+        }
+      };
+
+      ws.onclose = (event: CloseEvent) => {
+        if (pingTimer !== null) {
+          window.clearInterval(pingTimer);
+          pingTimer = null;
+        }
+        if (disposed) {
+          return;
+        }
+        if (event.code === CLOSE_REPLACED) {
+          dispatch({ type: "ws_status", status: "evicted" });
+          return;
+        }
+        if (event.code === CLOSE_AUTH_FAILED || event.code === CLOSE_FORBIDDEN) {
+          dispatch({ type: "ws_status", status: "auth_error" });
+          return;
+        }
+
+        dispatch({ type: "ws_status", status: "reconnecting" });
+        const delayMs = event.code === CLOSE_SEQ_GAP ? 50 : computeReconnectDelay(attempt);
+        attempt += 1;
+        reconnectTimer = window.setTimeout(connect, delayMs);
+      };
+
+      ws.onerror = () => {
+        if (!disposed) {
+          dispatch({ type: "ws_status", status: "reconnecting" });
+        }
+      };
     };
+
+    connect();
 
     return () => {
-      ws.close();
+      disposed = true;
+      clearTimers();
+      socketRef.current?.close(1000, "unmount");
       socketRef.current = null;
+      reset();
     };
-  }, [dispatch]);
+  }, [dispatch, normalizedCode, reset, token]);
 
-  const sendEcho = useCallback((message: string) => {
-    if (socketRef.current?.readyState === WebSocket.OPEN) {
-      socketRef.current.send(JSON.stringify({ message }));
+  const sendCommand = useCallback((type: string, payload: Record<string, unknown> = {}) => {
+    const ws = socketRef.current;
+    if (ws?.readyState !== WebSocket.OPEN) {
+      return false;
     }
+    ws.send(
+      JSON.stringify({
+        v: PROTOCOL_VERSION,
+        id: nextClientId(),
+        type,
+        payload,
+      }),
+    );
+    return true;
   }, []);
 
-  return { sendEcho };
+  return { sendCommand };
 }
