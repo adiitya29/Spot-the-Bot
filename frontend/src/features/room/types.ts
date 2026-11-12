@@ -64,6 +64,72 @@ export interface RoomSnapshotPayload {
   ready_to_vote?: boolean;
   answers?: RoundAnswer[];
   messages?: ChatMessage[];
+  votes_cast?: number;
+  total_humans?: number;
+  my_vote_target_seat_id?: string | null;
+  reveal?: RevealPayload | null;
+  game_over?: GameOverPayload | null;
+}
+
+export interface VoteProgressPayload {
+  round_id: string;
+  votes_cast: number;
+  total_humans: number;
+}
+
+export interface RevealTallyEntry {
+  seat_id: string;
+  alias: string;
+  color_index: number;
+  is_bot: boolean;
+  player_id: string | null;
+  nickname: string;
+  votes_received: number;
+  voter_seat_ids: string[];
+  voted_target_seat_id: string | null;
+  round_points: number;
+  total_score: number | null;
+}
+
+export interface LeaderboardEntry {
+  rank?: number;
+  player_id: string;
+  nickname: string;
+  is_host: boolean;
+  connected: boolean;
+  score: number;
+  round_points?: number;
+}
+
+export interface RevealPayload {
+  round_id: string;
+  round_number: number;
+  total_rounds: number;
+  bot_seat_id: string;
+  bot_alias: string;
+  votes_for_bot: number;
+  human_voters: number;
+  bot_fooled: boolean;
+  tally: RevealTallyEntry[];
+  leaderboard: LeaderboardEntry[];
+}
+
+export interface RoundSummaryEntry {
+  round_number: number;
+  topic_text: string;
+  topic_category: string;
+  bot_alias: string;
+  votes_for_bot: number;
+  human_voters: number;
+  bot_fooled: boolean;
+}
+
+export interface GameOverPayload {
+  game_index: number;
+  total_rounds: number;
+  bot_fooled_count: number;
+  leaderboard: LeaderboardEntry[];
+  rounds_summary: RoundSummaryEntry[];
 }
 
 export interface PlayerJoinedPayload {
@@ -85,14 +151,14 @@ export interface PresencePayload {
 }
 
 export interface PhaseChangedPayload {
-  round_id: string;
+  round_id: string | null;
   game_index: number;
   round_number: number;
   total_rounds: number;
   phase: string;
-  ends_at: number;
+  ends_at: number | null;
   server_time: number;
-  topic: TopicInfo;
+  topic: TopicInfo | null;
   seats: RoundSeat[];
 }
 
@@ -145,6 +211,11 @@ export interface RoomState {
   answers: RoundAnswer[];
   messages: ChatMessage[];
   typingSeats: Record<string, number>;
+  votesCast: number;
+  totalHumans: number;
+  myVoteTargetSeatId: string | null;
+  reveal: RevealPayload | null;
+  gameOver: GameOverPayload | null;
 }
 
 export type RoomAction =
@@ -156,9 +227,13 @@ export type RoomAction =
   | { type: "phase_changed"; seq: number; payload: PhaseChangedPayload; localNowMs?: number }
   | { type: "answers_revealed"; seq: number; payload: AnswersRevealedPayload }
   | { type: "chat_message"; seq: number; payload: ChatMessage }
+  | { type: "vote_progress"; seq: number; payload: VoteProgressPayload }
+  | { type: "reveal"; seq: number; payload: RevealPayload }
+  | { type: "game_over"; seq: number; payload: GameOverPayload }
   | { type: "typing"; payload: TypingPayload; nowMs?: number }
   | { type: "prune_typing"; nowMs?: number }
   | { type: "answer_submitted_local"; text: string }
   | { type: "ready_to_vote_local" }
+  | { type: "vote_cast_local"; targetSeatId: string }
   | { type: "server_error"; payload: ErrorPayload }
   | { type: "clear_error" };

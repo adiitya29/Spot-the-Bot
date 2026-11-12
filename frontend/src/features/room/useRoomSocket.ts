@@ -5,12 +5,15 @@ import type {
   AnswersRevealedPayload,
   ChatMessage,
   ErrorPayload,
+  GameOverPayload,
   PhaseChangedPayload,
   PlayerJoinedPayload,
   PlayerLeftPayload,
   PresencePayload,
+  RevealPayload,
   RoomSnapshotPayload,
   TypingPayload,
+  VoteProgressPayload,
   WsEnvelope,
 } from "./types";
 
@@ -181,6 +184,27 @@ export function useRoomSocket(roomCode: string, token: string | null) {
               type: "chat_message",
               seq: frame.seq,
               payload: frame.payload as ChatMessage,
+            });
+            break;
+          case "vote_progress":
+            dispatch({
+              type: "vote_progress",
+              seq: frame.seq,
+              payload: frame.payload as VoteProgressPayload,
+            });
+            break;
+          case "reveal":
+            dispatch({
+              type: "reveal",
+              seq: frame.seq,
+              payload: frame.payload as RevealPayload,
+            });
+            break;
+          case "game_over":
+            dispatch({
+              type: "game_over",
+              seq: frame.seq,
+              payload: frame.payload as GameOverPayload,
             });
             break;
         }

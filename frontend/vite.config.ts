@@ -18,7 +18,7 @@ export default defineConfig({
         target: apiTarget,
         changeOrigin: true,
       },
-      "/s": {
+      "/s/": {
         target: apiTarget,
         changeOrigin: true,
       },

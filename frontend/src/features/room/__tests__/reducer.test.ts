@@ -160,4 +160,98 @@ describe("roomReducer", () => {
     expect(state.messages).toHaveLength(1);
     expect(Object.keys(state.typingSeats)).toHaveLength(0);
   });
+
+  it("handles Phase 4 vote_progress, reveal, game_over, and play_again lobby reset", () => {
+    let state = roomReducer(initialRoomState, {
+      type: "room_snapshot",
+      seq: 1,
+      payload: {
+        ...baseSnapshot,
+        status: "in_progress",
+        phase: "vote",
+        round_id: "r1",
+        round_number: 1,
+        total_rounds: 3,
+        ends_at: 85_000,
+        topic: { id: 1, text: "Weird snack combos?", category: "funny" },
+        seats: [
+          { seat_id: "s1", alias: "Teal Otter", color_index: 0 },
+          { seat_id: "s2", alias: "Coral Fox", color_index: 1 },
+        ],
+        my_seat_id: "s1",
+        votes_cast: 0,
+        total_humans: 3,
+      },
+      localNowMs: 50_000,
+    });
+
+    state = roomReducer(state, { type: "vote_cast_local", targetSeatId: "s2" });
+    expect(state.myVoteTargetSeatId).toBe("s2");
+
+    state = roomReducer(state, {
+      type: "vote_progress",
+      seq: 2,
+      payload: { round_id: "r1", votes_cast: 2, total_humans: 3 },
+    });
+    expect(state.votesCast).toBe(2);
+
+    state = roomReducer(state, {
+      type: "reveal",
+      seq: 3,
+      payload: {
+        round_id: "r1",
+        round_number: 1,
+        total_rounds: 3,
+        bot_seat_id: "s2",
+        bot_alias: "Coral Fox",
+        votes_for_bot: 2,
+        human_voters: 3,
+        bot_fooled: false,
+        tally: [],
+        leaderboard: [
+          { player_id: "p1", nickname: "Alice", is_host: true, connected: true, score: 100 },
+        ],
+      },
+    });
+    expect(state.reveal?.bot_alias).toBe("Coral Fox");
+    expect(state.players[0].score).toBe(100);
+
+    state = roomReducer(state, {
+      type: "game_over",
+      seq: 4,
+      payload: {
+        game_index: 1,
+        total_rounds: 3,
+        bot_fooled_count: 1,
+        leaderboard: [
+          { player_id: "p1", nickname: "Alice", is_host: true, connected: true, score: 300 },
+        ],
+        rounds_summary: [],
+      },
+    });
+    expect(state.status).toBe("finished");
+    expect(state.gameOver?.leaderboard[0].score).toBe(300);
+
+    // play_again resets room back to lobby
+    state = roomReducer(state, {
+      type: "phase_changed",
+      seq: 5,
+      payload: {
+        round_id: null,
+        game_index: 1,
+        round_number: 0,
+        total_rounds: 3,
+        phase: "lobby",
+        ends_at: null,
+        server_time: 100_000,
+        topic: null,
+        seats: [],
+      },
+      localNowMs: 100_000,
+    });
+    expect(state.phase).toBe("lobby");
+    expect(state.status).toBe("lobby");
+    expect(state.gameOver).toBeNull();
+    expect(state.reveal).toBeNull();
+  });
 });

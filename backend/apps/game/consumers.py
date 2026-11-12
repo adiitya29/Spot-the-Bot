@@ -20,8 +20,10 @@ from apps.game.rate_limits import check_typing_rate_limit
 from apps.game.state_machine import (
     GameTransitionError,
     build_room_snapshot_payload,
+    cast_vote,
     get_active_seat_for_player,
     mark_ready_to_vote,
+    play_again,
     send_chat_message,
     start_game,
     submit_answer,
@@ -386,6 +388,24 @@ class RoomConsumer(AsyncWebsocketConsumer):
         if msg_type == "ready_to_vote":
             try:
                 await database_sync_to_async(mark_ready_to_vote)(self.room_id, self.player_id)
+            except GameTransitionError as exc:
+                await self._send_error(exc.code, exc.message)
+            return
+
+        if msg_type == "cast_vote":
+            try:
+                await database_sync_to_async(cast_vote)(
+                    self.room_id,
+                    self.player_id,
+                    payload.get("target_seat_id"),
+                )
+            except GameTransitionError as exc:
+                await self._send_error(exc.code, exc.message)
+            return
+
+        if msg_type == "play_again":
+            try:
+                await database_sync_to_async(play_again)(self.room_id, self.player_id)
             except GameTransitionError as exc:
                 await self._send_error(exc.code, exc.message)
             return
