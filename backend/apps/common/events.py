@@ -38,6 +38,8 @@ def append_event(
     room_id: UUID,
     event_type: str,
     payload: dict[str, Any],
+    *,
+    round_id: UUID | None = None,
 ) -> Event:
     """Atomically increment Room.last_seq and append a persistent Event row."""
     with transaction.atomic():
@@ -47,6 +49,7 @@ def append_event(
         room.save(update_fields=["last_seq"])
         return Event.objects.create(
             room=room,
+            round_id=round_id,
             seq=next_seq,
             type=event_type,
             payload=payload,

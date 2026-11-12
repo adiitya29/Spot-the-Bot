@@ -14,3 +14,10 @@ export function getRemainingSeconds(
   const remainingMs = endsAtMs - (localNowMs + offsetMs);
   return Math.max(0, Math.ceil(remainingMs / 1000));
 }
+
+export function formatCountdown(totalSeconds: number): string {
+  const safeSeconds = Math.max(0, Math.floor(totalSeconds));
+  const mins = Math.floor(safeSeconds / 60);
+  const secs = safeSeconds % 60;
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+}

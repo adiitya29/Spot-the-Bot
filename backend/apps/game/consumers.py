@@ -14,7 +14,18 @@ from django.utils import timezone
 
 from apps.common.events import PROTOCOL_VERSION, append_event, build_envelope, utc_now_ms
 from apps.game.middleware import WSAuthContext
+from apps.game.models import RoundPhase
 from apps.game.presence import presence_manager
+from apps.game.rate_limits import check_typing_rate_limit
+from apps.game.state_machine import (
+    GameTransitionError,
+    build_room_snapshot_payload,
+    get_active_seat_for_player,
+    mark_ready_to_vote,
+    send_chat_message,
+    start_game,
+    submit_answer,
+)
 from apps.rooms.codes import normalize_room_code
 from apps.rooms.models import Player, Room, RoomStatus
 
@@ -73,25 +84,13 @@ def _handle_player_connect(
         }
 
     event = append_event(room.id, event_type, event_payload)
-    roster_qs = room.players.filter(is_bot=False)
-    if room.status == RoomStatus.LOBBY:
-        visible_ids = set(present_ids) | {str(player.id)}
-        roster_qs = roster_qs.filter(id__in=visible_ids)
-    roster = [_serialize_lobby_player(p) for p in roster_qs]
-    snapshot_payload = {
-        "code": room.code,
-        "status": room.status,
-        "phase": "lobby" if room.status == RoomStatus.LOBBY else room.status,
-        "min_humans": room.min_humans,
-        "capacity": int(getattr(settings, "MAX_HUMANS_DEFAULT", 7)),
-        "allow_replay_use": room.allow_replay_use,
-        "can_start": can_start,
-        "my_player_id": str(player.id),
-        "server_time": utc_now_ms(),
-        "roster": roster,
-    }
+    snap_seq, snapshot_payload = build_room_snapshot_payload(
+        room.id,
+        player.id,
+        present_ids=present_ids,
+    )
     return (
-        {"seq": event.seq, "payload": snapshot_payload},
+        {"seq": snap_seq, "payload": snapshot_payload},
         {"seq": event.seq, "type": event_type, "payload": event_payload},
     )
 
@@ -143,23 +142,22 @@ def _handle_grace_expired(room_id: UUID, player_id: UUID) -> dict[str, Any] | No
 
 
 @database_sync_to_async
-def _validate_start_game(room_id: UUID, player_id: UUID) -> tuple[str, str]:
-    """Validate host privileges and minimum connected human count before starting."""
-    room = Room.objects.filter(id=room_id).first()
-    if room is None:
-        return ("room_not_found", "Room not found.")
-    player = Player.objects.filter(id=player_id, room=room, is_bot=False).first()
-    if player is None or not player.is_host:
-        return ("not_host", "Only the room host can start the game.")
-    if room.status != RoomStatus.LOBBY:
-        return ("invalid_phase", "Game is not in lobby.")
-    connected_humans = room.players.filter(is_bot=False, connected=True).count()
-    if connected_humans < room.min_humans:
-        return (
-            "not_enough_players",
-            f"Need at least {room.min_humans} connected players to start.",
-        )
-    return ("game_start_pending_phase3", "Round state machine will be enabled in Phase 3.")
+def _handle_typing_event(room_id: UUID, player_id: UUID, is_typing: bool) -> str | None:
+    """Validate active CHAT seat & typing rate limit; return seat_id string if allowed."""
+    if not check_typing_rate_limit(room_id, player_id).allowed:
+        return None
+    active = get_active_seat_for_player(room_id, player_id)
+    if active is None:
+        return None
+    round_obj, seat = active
+    if round_obj.phase != RoundPhase.CHAT:
+        return None
+    return str(seat.id)
+
+
+@database_sync_to_async
+def _build_unicast_snapshot(room_id: UUID, player_id: UUID) -> tuple[int, dict[str, Any]]:
+    return build_room_snapshot_payload(room_id, player_id)
 
 
 class EchoConsumer(AsyncWebsocketConsumer):
@@ -344,6 +342,9 @@ class RoomConsumer(AsyncWebsocketConsumer):
             return
 
         msg_type = frame.get("type")
+        raw_payload = frame.get("payload")
+        payload = raw_payload if isinstance(raw_payload, dict) else {}
+
         if msg_type == "ping":
             await self.send(
                 text_data=json.dumps(
@@ -353,8 +354,58 @@ class RoomConsumer(AsyncWebsocketConsumer):
             return
 
         if msg_type == "start_game":
-            err_code, err_msg = await _validate_start_game(self.room_id, self.player_id)
-            await self._send_error(err_code, err_msg)
+            try:
+                await database_sync_to_async(start_game)(self.room_id, self.player_id)
+            except GameTransitionError as exc:
+                await self._send_error(exc.code, exc.message)
+            return
+
+        if msg_type == "submit_answer":
+            try:
+                await database_sync_to_async(submit_answer)(
+                    self.room_id,
+                    self.player_id,
+                    payload.get("text"),
+                )
+            except GameTransitionError as exc:
+                await self._send_error(exc.code, exc.message)
+            return
+
+        if msg_type == "send_message":
+            try:
+                await database_sync_to_async(send_chat_message)(
+                    self.room_id,
+                    self.player_id,
+                    payload.get("text"),
+                    client_msg_id=payload.get("client_msg_id"),
+                )
+            except GameTransitionError as exc:
+                await self._send_error(exc.code, exc.message)
+            return
+
+        if msg_type == "ready_to_vote":
+            try:
+                await database_sync_to_async(mark_ready_to_vote)(self.room_id, self.player_id)
+            except GameTransitionError as exc:
+                await self._send_error(exc.code, exc.message)
+            return
+
+        if msg_type == "typing":
+            is_typing = bool(payload.get("is_typing", False))
+            seat_id = await _handle_typing_event(self.room_id, self.player_id, is_typing)
+            if seat_id is not None:
+                await self.channel_layer.group_send(
+                    self.group_name,
+                    {
+                        "type": "room.event",
+                        "sender_channel": self.channel_name,
+                        "envelope": build_envelope(
+                            "typing",
+                            {"seat_id": seat_id, "is_typing": is_typing},
+                            seq=None,
+                        ),
+                    },
+                )
             return
 
         await self._send_error("unknown_type", f"Unsupported message type: {msg_type}")
@@ -364,6 +415,14 @@ class RoomConsumer(AsyncWebsocketConsumer):
         if event.get("sender_channel") == self.channel_name:
             return
         await self.send(text_data=json.dumps(event["envelope"]))
+
+    async def room_round_started(self, event: dict[str, Any]) -> None:
+        """Send public phase_changed envelope then unicast personalized room_snapshot."""
+        await self.send(text_data=json.dumps(event["envelope"]))
+        seq, snap_payload = await _build_unicast_snapshot(self.room_id, self.player_id)
+        await self.send(
+            text_data=json.dumps(build_envelope("room_snapshot", snap_payload, seq=seq))
+        )
 
     async def session_replaced(self, _event: dict[str, Any]) -> None:
         """Close superseded tab cleanly so it does not auto-reconnect in a loop."""
