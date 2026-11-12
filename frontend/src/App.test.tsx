@@ -1,51 +1,16 @@
 import { render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import App from "./App";
 import { computeClockOffset, getRemainingSeconds } from "./lib/clockSync";
 import { initialRoomState, roomReducer } from "./features/room/reducer";
-import { useRoomStore } from "./features/room/roomStore";
 
-class MockWebSocket {
-  static OPEN = 1;
-  readyState = MockWebSocket.OPEN;
-  url: string;
-  onopen: (() => void) | null = null;
-  onmessage: ((event: MessageEvent<string>) => void) | null = null;
-  onerror: (() => void) | null = null;
-
-  constructor(url: string) {
-    this.url = url;
-    queueMicrotask(() => {
-      this.onopen?.();
-    });
-  }
-
-  send = vi.fn();
-  close = vi.fn();
-}
-
-describe("Phase 0 frontend scaffold", () => {
-  beforeEach(() => {
-    useRoomStore.getState().reset();
-    vi.stubGlobal("WebSocket", MockWebSocket);
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ status: "ok" }),
-      }),
-    );
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it("renders landing scaffold and connects echo websocket", async () => {
+describe("App shell and Phase 1 routing", () => {
+  it("renders landing page with create and join forms", () => {
+    window.history.pushState({}, "", "/");
     render(<App />);
     expect(screen.getByRole("heading", { name: "Spot the Bot" })).toBeInTheDocument();
-    expect(await screen.findByText("ok")).toBeInTheDocument();
-    expect(await screen.findByText("connected")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Create a Room" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Join with Code" })).toBeInTheDocument();
   });
 
   it("applies reducer transitions cleanly", () => {
