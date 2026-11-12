@@ -2,11 +2,15 @@ import { useCallback, useEffect, useRef } from "react";
 import { PROTOCOL_VERSION, normalizeRoomCode } from "../../lib/constants";
 import { useRoomStore } from "./roomStore";
 import type {
+  AnswersRevealedPayload,
+  ChatMessage,
   ErrorPayload,
+  PhaseChangedPayload,
   PlayerJoinedPayload,
   PlayerLeftPayload,
   PresencePayload,
   RoomSnapshotPayload,
+  TypingPayload,
   WsEnvelope,
 } from "./types";
 
@@ -96,6 +100,14 @@ export function useRoomSocket(roomCode: string, token: string | null) {
           return;
         }
 
+        if (frame.type === "typing") {
+          dispatch({
+            type: "typing",
+            payload: frame.payload as TypingPayload,
+          });
+          return;
+        }
+
         if (frame.type === "room_snapshot") {
           dispatch({
             type: "room_snapshot",
@@ -148,6 +160,27 @@ export function useRoomSocket(roomCode: string, token: string | null) {
               type: "presence",
               seq: frame.seq,
               payload: frame.payload as PresencePayload,
+            });
+            break;
+          case "phase_changed":
+            dispatch({
+              type: "phase_changed",
+              seq: frame.seq,
+              payload: frame.payload as PhaseChangedPayload,
+            });
+            break;
+          case "answers_revealed":
+            dispatch({
+              type: "answers_revealed",
+              seq: frame.seq,
+              payload: frame.payload as AnswersRevealedPayload,
+            });
+            break;
+          case "chat_message":
+            dispatch({
+              type: "chat_message",
+              seq: frame.seq,
+              payload: frame.payload as ChatMessage,
             });
             break;
         }

@@ -9,6 +9,13 @@ class Event(models.Model):
     """Append-only per-room state event log used for seq tracking, replays, and debugging."""
 
     room = models.ForeignKey("rooms.Room", on_delete=models.CASCADE, related_name="events")
+    round = models.ForeignKey(
+        "game.Round",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="events",
+    )
     seq = models.PositiveIntegerField()
     type = models.CharField(max_length=64)
     payload = models.JSONField(default=dict)

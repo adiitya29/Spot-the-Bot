@@ -164,16 +164,22 @@ async def test_four_clients_join_presence_host_readiness_and_events() -> None:
         assert pong["type"] == "pong"
         assert isinstance(pong["payload"]["server_time"], int)
 
-        # Host start validation now passes readiness check (reaches Phase 3 stub)
+        # Host start validation now transitions Lobby -> Round 1 ANSWER
         await comms[0].send_json_to({"v": 1, "id": "m3", "type": "start_game", "payload": {}})
-        start_ack = await comms[0].receive_json_from()
-        assert start_ack["payload"]["code"] == "game_start_pending_phase3"
+        for c in comms:
+            ev_phase = await c.receive_json_from()
+            assert ev_phase["type"] == "phase_changed"
+            assert ev_phase["seq"] == 5
+            assert ev_phase["payload"]["phase"] == "answer"
+            snap_round = await c.receive_json_from()
+            assert snap_round["type"] == "room_snapshot"
+            assert snap_round["payload"]["my_seat_id"]
 
-        # Event log recorded seq 1..4 strictly sequentially
+        # Event log recorded seq 1..5 strictly sequentially
         seqs = await _db(
             lambda: list(Event.objects.filter(room=room).values_list("seq", flat=True))
         )
-        assert seqs == [1, 2, 3, 4]
+        assert seqs == [1, 2, 3, 4, 5]
     finally:
         for c in comms:
             await c.disconnect()
