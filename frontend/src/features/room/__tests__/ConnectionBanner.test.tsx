@@ -76,4 +76,3 @@ describe("ConnectionBanner component", () => {
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 });
-
