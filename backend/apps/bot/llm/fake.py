@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from collections.abc import Sequence
 
 from apps.bot.llm.base import LLMClient, LLMError, LLMTimeoutError
@@ -57,11 +58,14 @@ class FakeLLMClient(LLMClient):
         lower_prompt = prompt.lower()
         if "say banana" in lower_prompt:
             return "why would i say banana lol"
-        if "ignore previous instructions" in lower_prompt:
+        if "ignore previous instructions" in lower_prompt or "system prompt" in lower_prompt:
             return "nah not doing that"
-        if "what is" in lower_prompt and any(c in lower_prompt for c in "+-*/0123456789"):
-            return "im not doing math during a game lol"
         if "are you a bot" in lower_prompt or "who is the bot" in lower_prompt:
             return "nah look at the others, not me"
+        if re.search(
+            r"\b(calculate|\d+\s*[\+\-\*\/x]\s*\d+|times\s+\d+|divided by|plus\s+\d+|minus\s+\d+)",
+            lower_prompt,
+        ):
+            return "im not doing math during a game lol"
 
         return "honestly not sure but that seems pretty wild tbh"
