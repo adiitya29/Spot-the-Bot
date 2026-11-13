@@ -243,7 +243,8 @@ def _create_round_with_seats(
 
     from apps.bot.persona import generate_persona
 
-    persona = generate_persona(topic.text, rng=rng)
+    variant = str((room.config or {}).get("bot_variant", "baseline_v1"))
+    persona = generate_persona(topic.text, variant=variant, rng=rng)
 
     round_obj = Round.objects.create(
         room=room,

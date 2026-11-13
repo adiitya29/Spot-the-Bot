@@ -52,6 +52,15 @@ def build_bot_system_prompt(
     style_guide = format_style_instructions(style_profile)
     quirk = persona.get("quirk", "speaks casually")
     tone = persona.get("tone", "Informal and relaxed")
+    variant = persona.get("variant", "baseline_v1")
+
+    variant_notes = ""
+    if variant == "terse_casual":
+        variant_notes = (
+            "- Keep reply ultra brief (under 8 words). Use fragments and casual slang.\n"
+        )
+    elif variant == "chatty_banterer":
+        variant_notes = "- Engage actively in banter. React to jokes and ask casual follow-ups.\n"
 
     examples_block = "\n".join(
         f"- Context: {ex['context']}\n  Response: {ex['reply']}" for ex in FEW_SHOT_EXAMPLES
@@ -68,6 +77,7 @@ def build_bot_system_prompt(
         f"- Behavioral Quirk: {quirk}\n\n"
         "STYLE GUIDELINES (Match the room's current vibe):\n"
         f"- {style_guide}\n"
+        f"{variant_notes}"
         "- NEVER use markdown formatting (no bold **, no bullets, no code fences, no quotes).\n"
         "- Send exactly ONE brief chat line (under 120 characters).\n"
         '- Never sound like an AI assistant. Never say "As an AI" or "Certainly!".\n\n'

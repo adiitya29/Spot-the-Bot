@@ -112,10 +112,14 @@ def generate_bot_answer(
     bot_seat = get_bot_seat(round_obj)
     bot_alias = bot_seat.alias if bot_seat else "Secret Player"
 
+    variant = (round_obj.bot_persona or {}).get("variant") or round_obj.room.config.get(
+        "bot_variant", "baseline_v1"
+    )
+
     # Ensure round has a persona
     persona = round_obj.bot_persona
     if not persona:
-        persona = generate_persona(round_obj.topic.text, rng=rng)
+        persona = generate_persona(round_obj.topic.text, variant=variant, rng=rng)
         round_obj.bot_persona = persona
         round_obj.save(update_fields=["bot_persona"])
 
@@ -186,6 +190,9 @@ def generate_bot_chat_reply(
     last_bot_at = last_bot_msg.created_at if last_bot_msg else None
 
     total_seats = round_obj.seats.count()
+    variant = (round_obj.bot_persona or {}).get("variant") or round_obj.room.config.get(
+        "bot_variant", "baseline_v1"
+    )
 
     should_reply = should_bot_reply(
         is_idle_tick=is_idle_tick,
@@ -195,6 +202,7 @@ def generate_bot_chat_reply(
         total_messages=total_messages,
         bot_messages=bot_messages,
         total_participants=total_seats or 4,
+        variant=variant,
         clock=clock,
         rng=rng,
     )
@@ -209,7 +217,9 @@ def generate_bot_chat_reply(
         round_obj.style_profile = current_style
         round_obj.save(update_fields=["style_profile"])
 
-    persona = round_obj.bot_persona or generate_persona(round_obj.topic.text, rng=rng)
+    persona = round_obj.bot_persona or generate_persona(
+        round_obj.topic.text, variant=variant, rng=rng
+    )
 
     transcript = [(m.seat.alias, m.text) for m in messages[-20:]]
     if last_trigger_text and (not transcript or transcript[-1][1] != last_trigger_text):
@@ -249,6 +259,7 @@ def generate_bot_chat_reply(
     timings = compute_bot_timings(
         len(last_trigger_text),
         reply_text,
+        variant=variant,
         rng=rng,
     )
     return reply_text, timings
