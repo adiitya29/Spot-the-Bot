@@ -42,6 +42,7 @@ def should_bot_reply(
     total_messages: int = 0,
     bot_messages: int = 0,
     total_participants: int = 4,
+    variant: str = "baseline_v1",
     clock: Callable[[], datetime] | None = None,
     rng: random.Random | None = None,
 ) -> bool:
@@ -50,10 +51,23 @@ def should_bot_reply(
     now = now_fn()
     chooser = rng or random.SystemRandom()
 
+    if variant == "terse_casual":
+        min_cooldown = 4.0
+        prob_general = 0.40
+        prob_idle = 0.20
+    elif variant == "chatty_banterer":
+        min_cooldown = 2.0
+        prob_general = 0.70
+        prob_idle = 0.45
+    else:
+        min_cooldown = MIN_COOLDOWN_SECONDS
+        prob_general = PROB_GENERAL_MESSAGE
+        prob_idle = PROB_IDLE_TICK
+
     # Enforce minimum cooldown between bot messages
     if last_bot_message_at is not None:
         elapsed = (now - last_bot_message_at).total_seconds()
-        if elapsed < MIN_COOLDOWN_SECONDS:
+        if elapsed < min_cooldown:
             return False
 
     # Check for direct address or mention of bot's alias
@@ -62,9 +76,9 @@ def should_bot_reply(
     if is_direct:
         base_prob = PROB_DIRECT_ADDRESS
     elif is_idle_tick:
-        base_prob = PROB_IDLE_TICK
+        base_prob = prob_idle
     else:
-        base_prob = PROB_GENERAL_MESSAGE
+        base_prob = prob_general
 
     scale = compute_fair_share_factor(
         total_messages=total_messages,

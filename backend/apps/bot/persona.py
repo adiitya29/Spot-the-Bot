@@ -48,14 +48,25 @@ STANCES: tuple[str, ...] = (
 def generate_persona(
     topic_text: str,
     *,
+    variant: str = "baseline_v1",
     rng: random.Random | None = None,
 ) -> dict[str, Any]:
     """Generate a coherent persona and stance for the bot in a round."""
     chooser = rng or random.SystemRandom()
-    archetype = chooser.choice(ARCHETYPES)
+
+    if variant == "terse_casual":
+        pool = [a for a in ARCHETYPES if a["id"] in ("chill_casual", "distracted_witty")]
+        archetype = chooser.choice(pool or list(ARCHETYPES))
+    elif variant == "chatty_banterer":
+        pool = [a for a in ARCHETYPES if a["id"] in ("skeptical_critic", "enthusiastic_agreeable")]
+        archetype = chooser.choice(pool or list(ARCHETYPES))
+    else:
+        archetype = chooser.choice(ARCHETYPES)
+
     stance = chooser.choice(STANCES)
 
     return {
+        "variant": variant,
         "archetype": archetype["id"],
         "description": archetype["description"],
         "tone": archetype["tone"],
