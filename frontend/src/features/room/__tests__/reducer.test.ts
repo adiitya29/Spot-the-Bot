@@ -254,4 +254,36 @@ describe("roomReducer", () => {
     expect(state.gameOver).toBeNull();
     expect(state.reveal).toBeNull();
   });
+
+  it("promotes new host when host departs and player_left carries new_host_id", () => {
+    let state = roomReducer(initialRoomState, {
+      type: "room_snapshot",
+      seq: 1,
+      payload: {
+        ...baseSnapshot,
+        roster: [
+          { id: "p1", nickname: "Alice", is_host: true, connected: true, score: 0 },
+          { id: "p2", nickname: "Bob", is_host: false, connected: true, score: 0 },
+        ],
+      },
+    });
+    expect(state.players[0].is_host).toBe(true);
+    expect(state.players[1].is_host).toBe(false);
+
+    state = roomReducer(state, {
+      type: "player_left",
+      seq: 2,
+      payload: {
+        player_id: "p1",
+        nickname: "Alice",
+        reason: "grace_expired",
+        can_start: false,
+        new_host_id: "p2",
+      },
+    });
+
+    expect(state.players).toHaveLength(1);
+    expect(state.players[0].id).toBe("p2");
+    expect(state.players[0].is_host).toBe(true);
+  });
 });

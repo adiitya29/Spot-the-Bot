@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { RoomState } from "../types";
+import { ConnectionBanner } from "./ConnectionBanner";
 
 interface LobbyProps {
   room: RoomState;
@@ -43,56 +44,12 @@ export function Lobby({ room, code, onStartGame, onDismissError }: LobbyProps) {
           </Link>
         </header>
 
-        {room.socketStatus === "reconnecting" || room.socketStatus === "connecting" ? (
-          <div
-            role="status"
-            className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2.5 text-xs text-amber-200"
-          >
-            {room.socketStatus === "connecting"
-              ? "Connecting to room..."
-              : "Connection lost. Reconnecting to room..."}
-          </div>
-        ) : null}
-
-        {room.socketStatus === "evicted" ? (
-          <div
-            role="alert"
-            className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2.5 text-xs text-amber-200"
-          >
-            You opened this room in another tab. This tab is now paused.
-          </div>
-        ) : null}
-
-        {room.socketStatus === "auth_error" ? (
-          <div
-            role="alert"
-            className="space-y-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-3 text-xs text-rose-200"
-          >
-            <p>Your guest session expired or is invalid for this room.</p>
-            <Link
-              to={`/join/${code}`}
-              className="inline-flex min-h-11 items-center rounded-lg bg-rose-500/20 px-3 font-semibold text-white hover:bg-rose-500/30"
-            >
-              Rejoin Room
-            </Link>
-          </div>
-        ) : null}
-
-        {room.lastError ? (
-          <div
-            role="alert"
-            className="flex items-center justify-between gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-xs text-rose-200"
-          >
-            <span>{room.lastError.message}</span>
-            <button
-              type="button"
-              onClick={onDismissError}
-              className="font-semibold text-rose-100 underline"
-            >
-              Dismiss
-            </button>
-          </div>
-        ) : null}
+        <ConnectionBanner
+          status={room.socketStatus}
+          code={code}
+          error={room.lastError}
+          onDismissError={onDismissError}
+        />
 
         <div className="flex gap-2">
           <input

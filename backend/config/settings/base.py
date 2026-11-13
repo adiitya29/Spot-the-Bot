@@ -147,6 +147,12 @@ CELERY_RESULT_SERIALIZER = "json"
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TIMEZONE = "UTC"
 CELERY_ENABLE_UTC = True
+CELERY_BEAT_SCHEDULE = {
+    "cleanup-abandoned-rooms": {
+        "task": "apps.rooms.tasks.cleanup_abandoned_rooms_task",
+        "schedule": 30.0,
+    },
+}
 
 # Spot the Bot settings
 FRONTEND_ORIGIN: str = env("FRONTEND_ORIGIN")

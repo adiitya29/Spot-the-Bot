@@ -114,10 +114,27 @@ export function roomReducer(state: RoomState, action: RoomAction): RoomState {
       if (isStaleEvent(state.lastSeq, action.seq)) {
         return state;
       }
+      const newHostId = action.payload.new_host_id;
       return {
         ...state,
-        players: state.players.filter((p) => p.id !== action.payload.player_id),
+        players: state.players
+          .filter((p) => p.id !== action.payload.player_id)
+          .map((p) => (newHostId && p.id === newHostId ? { ...p, is_host: true } : p)),
         canStart: action.payload.can_start,
+        lastSeq: action.seq,
+      };
+    }
+
+    case "host_promoted": {
+      if (isStaleEvent(state.lastSeq, action.seq)) {
+        return state;
+      }
+      return {
+        ...state,
+        players: state.players.map((p) => ({
+          ...p,
+          is_host: p.id === action.payload.new_host_id,
+        })),
         lastSeq: action.seq,
       };
     }

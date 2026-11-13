@@ -6,6 +6,7 @@ import type {
   ChatMessage,
   ErrorPayload,
   GameOverPayload,
+  HostPromotedPayload,
   PhaseChangedPayload,
   PlayerJoinedPayload,
   PlayerLeftPayload,
@@ -156,6 +157,13 @@ export function useRoomSocket(roomCode: string, token: string | null) {
               type: "player_left",
               seq: frame.seq,
               payload: frame.payload as PlayerLeftPayload,
+            });
+            break;
+          case "host_promoted":
+            dispatch({
+              type: "host_promoted",
+              seq: frame.seq,
+              payload: frame.payload as HostPromotedPayload,
             });
             break;
           case "presence":
