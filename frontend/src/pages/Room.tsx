@@ -1,7 +1,8 @@
 import { useEffect } from "react";
-import { Link, Navigate, useParams } from "react-router-dom";
+import { Navigate, useParams } from "react-router-dom";
 import { AnswerBox } from "../features/room/components/AnswerBox";
 import { ChatPanel } from "../features/room/components/ChatPanel";
+import { ConnectionBanner } from "../features/room/components/ConnectionBanner";
 import { Leaderboard } from "../features/room/components/Leaderboard";
 import { Lobby } from "../features/room/components/Lobby";
 import { PhaseHeader } from "../features/room/components/PhaseHeader";
@@ -62,51 +63,12 @@ export function Room() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-lg flex-col gap-3 px-4 py-5">
-      {roomState.socketStatus === "reconnecting" ? (
-        <div
-          role="status"
-          className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2 text-xs text-amber-200"
-        >
-          Connection lost. Reconnecting to room...
-        </div>
-      ) : null}
-
-      {roomState.socketStatus === "evicted" ? (
-        <div
-          role="alert"
-          className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2 text-xs text-amber-200"
-        >
-          You opened this room in another tab. This tab is now paused.
-        </div>
-      ) : null}
-
-      {roomState.socketStatus === "auth_error" ? (
-        <div
-          role="alert"
-          className="flex items-center justify-between rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-xs text-rose-200"
-        >
-          <span>Your guest session expired or is invalid.</span>
-          <Link to={`/join/${code}`} className="font-semibold text-white underline">
-            Rejoin
-          </Link>
-        </div>
-      ) : null}
-
-      {roomState.lastError ? (
-        <div
-          role="alert"
-          className="flex items-center justify-between gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-xs text-rose-200"
-        >
-          <span>{roomState.lastError.message}</span>
-          <button
-            type="button"
-            onClick={() => roomState.dispatch({ type: "clear_error" })}
-            className="font-semibold text-rose-100 underline"
-          >
-            Dismiss
-          </button>
-        </div>
-      ) : null}
+      <ConnectionBanner
+        status={roomState.socketStatus}
+        code={code}
+        error={roomState.lastError}
+        onDismissError={() => roomState.dispatch({ type: "clear_error" })}
+      />
 
       <PhaseHeader
         code={code}

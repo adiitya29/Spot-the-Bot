@@ -68,7 +68,13 @@ def _handle_player_connect(
         player = Player.objects.get(id=player_id, room=room, is_bot=False)
         player.connected = True
         player.last_seen_at = timezone.now()
-        player.save(update_fields=["connected", "last_seen_at"])
+        fields_to_update = ["connected", "last_seen_at"]
+        if room.host is None and not room.players.filter(is_host=True, is_bot=False).exists():
+            room.host = player
+            room.save(update_fields=["host"])
+            player.is_host = True
+            fields_to_update.append("is_host")
+        player.save(update_fields=fields_to_update)
 
     can_start = _compute_can_start(room)
     if not was_present:
@@ -123,7 +129,8 @@ def _handle_player_disconnect(room_id: UUID, player_id: UUID) -> dict[str, Any] 
 
 @database_sync_to_async
 def _handle_grace_expired(room_id: UUID, player_id: UUID) -> dict[str, Any] | None:
-    """Emit player_left if player remains disconnected past 30s grace in LOBBY."""
+    """Emit player_left if player remains disconnected past grace in LOBBY."""
+    new_host_id: str | None = None
     with transaction.atomic():
         room = Room.objects.select_for_update().filter(id=room_id).first()
         if room is None or room.status != RoomStatus.LOBBY:
@@ -132,12 +139,42 @@ def _handle_grace_expired(room_id: UUID, player_id: UUID) -> dict[str, Any] | No
         if player is None or player.connected:
             return None
 
+        # Check if the departing player is the host
+        was_host = player.is_host or (room.host_id == player.id)
+        if was_host:
+            player.is_host = False
+            player.save(update_fields=["is_host"])
+            next_host = (
+                Player.objects.filter(room=room, is_bot=False, connected=True)
+                .exclude(id=player.id)
+                .order_by("joined_at")
+                .first()
+            )
+            if next_host is None:
+                next_host = (
+                    Player.objects.filter(room=room, is_bot=False)
+                    .exclude(id=player.id)
+                    .order_by("joined_at")
+                    .first()
+                )
+
+            if next_host is not None:
+                next_host.is_host = True
+                next_host.save(update_fields=["is_host"])
+                room.host = next_host
+                room.save(update_fields=["host"])
+                new_host_id = str(next_host.id)
+            else:
+                room.host = None
+                room.save(update_fields=["host"])
+
     can_start = _compute_can_start(room)
     event_payload = {
         "player_id": str(player.id),
         "nickname": player.nickname,
         "reason": "grace_expired",
         "can_start": can_start,
+        "new_host_id": new_host_id,
     }
     event = append_event(room.id, "player_left", event_payload)
     return {"seq": event.seq, "type": "player_left", "payload": event_payload}

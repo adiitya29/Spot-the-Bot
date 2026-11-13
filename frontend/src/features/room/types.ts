@@ -142,6 +142,12 @@ export interface PlayerLeftPayload {
   nickname: string;
   reason: string;
   can_start: boolean;
+  new_host_id?: string | null;
+}
+
+export interface HostPromotedPayload {
+  new_host_id: string;
+  previous_host_id?: string | null;
 }
 
 export interface PresencePayload {
@@ -223,6 +229,7 @@ export type RoomAction =
   | { type: "room_snapshot"; seq: number | null; payload: RoomSnapshotPayload; localNowMs?: number }
   | { type: "player_joined"; seq: number; payload: PlayerJoinedPayload }
   | { type: "player_left"; seq: number; payload: PlayerLeftPayload }
+  | { type: "host_promoted"; seq: number; payload: HostPromotedPayload }
   | { type: "presence"; seq: number; payload: PresencePayload }
   | { type: "phase_changed"; seq: number; payload: PhaseChangedPayload; localNowMs?: number }
   | { type: "answers_revealed"; seq: number; payload: AnswersRevealedPayload }

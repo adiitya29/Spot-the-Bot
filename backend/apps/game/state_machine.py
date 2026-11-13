@@ -485,13 +485,27 @@ def send_chat_message(
                     "You're sending messages too fast. Slow down a bit.",
                 )
 
-        msg = Message.objects.create(
-            round=round_obj,
-            seat=seat,
-            text=cleaned,
-            kind=MessageKind.CHAT,
-            client_msg_id=parsed_client_id,
-        )
+        try:
+            msg = Message.objects.create(
+                round=round_obj,
+                seat=seat,
+                text=cleaned,
+                kind=MessageKind.CHAT,
+                client_msg_id=parsed_client_id,
+            )
+        except IntegrityError:
+            if parsed_client_id is not None:
+                existing = Message.objects.filter(
+                    seat=seat,
+                    client_msg_id=parsed_client_id,
+                ).first()
+                if existing is not None:
+                    return build_envelope(
+                        "chat_message",
+                        serialize_chat_message(existing, round_id=round_obj.id),
+                        seq=None,
+                    )
+            raise
         payload = serialize_chat_message(msg, round_id=round_obj.id)
         event = append_event(room.id, "chat_message", payload, round_id=round_obj.id)
         envelope = build_envelope("chat_message", payload, seq=event.seq)
