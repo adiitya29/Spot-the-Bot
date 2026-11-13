@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import random
 import unicodedata
@@ -16,7 +17,6 @@ from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from apps.bot.stub import pick_stub_answer
 from apps.common.events import append_event, build_envelope, utc_now_ms
 from apps.common.locks import room_lock
 from apps.game.aliases import assign_round_aliases
@@ -191,13 +191,15 @@ def _ensure_bot_answer_before_chat(round_obj: Round, *, rng: random.Random | Non
         return
     if Message.objects.filter(round=round_obj, seat=bot_seat, kind=MessageKind.ANSWER).exists():
         return
-    text = pick_stub_answer(round_obj, rng=rng)
+    from apps.bot.engine import generate_bot_answer
+
+    text = generate_bot_answer(round_obj, rng=rng)
     Message.objects.create(
         round=round_obj,
         seat=bot_seat,
         text=text,
         kind=MessageKind.ANSWER,
-        meta={"source": "phase4_stub"},
+        meta={"source": "bot_engine_v1"},
     )
     bot_seat.has_answered = True
     bot_seat.save(update_fields=["has_answered"])
@@ -239,6 +241,10 @@ def _create_round_with_seats(
     answer_seconds = _phase_duration_seconds(room, RoundPhase.ANSWER)
     ends_at = current_now + timedelta(seconds=answer_seconds)
 
+    from apps.bot.persona import generate_persona
+
+    persona = generate_persona(topic.text, rng=rng)
+
     round_obj = Round.objects.create(
         room=room,
         game_index=game_index,
@@ -247,6 +253,7 @@ def _create_round_with_seats(
         phase=RoundPhase.ANSWER,
         phase_started_at=current_now,
         phase_ends_at=ends_at,
+        bot_persona=persona,
     )
 
     participants: list[Player] = [*human_list, bot_player]
@@ -519,6 +526,11 @@ def send_chat_message(
                     "envelope": envelope,
                 },
             )
+            if not seat.player.is_bot:
+                with contextlib.suppress(Exception):
+                    from apps.bot.tasks import bot_trigger_on_message
+
+                    bot_trigger_on_message.delay(str(round_obj.id), cleaned)
 
         transaction.on_commit(_after_commit)
         return envelope
