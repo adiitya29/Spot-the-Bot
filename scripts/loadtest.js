@@ -163,3 +163,4 @@ export default function () {
   check(res, { 'ws handshake successful (101)': (r) => r && r.status === 101 });
   sleep(1);
 }
+

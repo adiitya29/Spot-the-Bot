@@ -79,3 +79,4 @@ Latency Range      Percentage  Distribution
    Use `maxmemory 2gb` with `maxmemory-policy volatile-ttl` to prevent unbounded memory growth from presence tracking keys.
 3. **ASGI Workers**:
    In production with high CPU utilization, run 2–4 Daphne ASGI processes managed by a process manager or container orchestrator behind Nginx round-robin balancing.
+
