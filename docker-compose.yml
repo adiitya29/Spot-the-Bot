@@ -29,6 +29,7 @@ services:
     build:
       context: .
       dockerfile: docker/backend.Dockerfile
+      target: dev
     command: >
       sh -c "python manage.py migrate --noinput &&
              daphne -b 0.0.0.0 -p 8000 config.asgi:application"
@@ -61,6 +62,7 @@ services:
     build:
       context: .
       dockerfile: docker/backend.Dockerfile
+      target: dev
     command: python manage.py run_scheduler
     environment:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-insecure-secret-key-change-in-prod}
