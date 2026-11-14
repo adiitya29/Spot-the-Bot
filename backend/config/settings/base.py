@@ -31,6 +31,10 @@ if env_file.exists():
 SECRET_KEY = env("DJANGO_SECRET_KEY", default="unsafe-placeholder-override-in-env")
 DEBUG: bool = env("DJANGO_DEBUG")
 ALLOWED_HOSTS: list[str] = env("ALLOWED_HOSTS")
+CSRF_TRUSTED_ORIGINS: list[str] = env.list(
+    "CSRF_TRUSTED_ORIGINS",
+    default=["http://localhost:5173", "http://127.0.0.1:5173"],
+)
 
 INSTALLED_APPS = [
     "daphne",
