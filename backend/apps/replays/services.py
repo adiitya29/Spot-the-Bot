@@ -157,4 +157,3 @@ def get_bot_global_stats() -> dict[str, Any]:
             "bot_fooled_rate": overall_fooled_rate,
         },
     }
-

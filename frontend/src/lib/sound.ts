@@ -172,4 +172,3 @@ export function playWrong(): void {
   osc.start(now);
   osc.stop(now + 0.3);
 }
-

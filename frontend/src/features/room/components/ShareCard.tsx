@@ -101,4 +101,3 @@ export function ShareCard({ roomCode }: ShareCardProps) {
     </section>
   );
 }
-

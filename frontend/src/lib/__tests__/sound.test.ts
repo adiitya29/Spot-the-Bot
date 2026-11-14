@@ -87,4 +87,3 @@ describe("Web Audio API sound module", () => {
     expect(() => playWrong()).not.toThrow();
   });
 });
-

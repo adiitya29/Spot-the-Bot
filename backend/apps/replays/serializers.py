@@ -91,4 +91,3 @@ class SoloGuessInputSerializer(serializers.Serializer):
         trim_whitespace=True,
         help_text="The seat alias suspected of being the covert AI bot.",
     )
-
