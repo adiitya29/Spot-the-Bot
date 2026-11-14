@@ -155,6 +155,7 @@ export function Room() {
           totalRounds={roomState.gameOver.total_rounds}
           isGameOver
           isHost={isHost}
+          roomCode={code}
           disabled={!isOnline}
           onPlayAgain={() => {
             sendCommand("play_again", {});

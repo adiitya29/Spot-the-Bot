@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ApiError, createRoom, saveRoomSession } from "../lib/api";
 import {
   NICKNAME_MAX_LENGTH,
@@ -199,6 +199,16 @@ export function Landing() {
             </p>
           ) : null}
         </section>
+
+        <div className="pt-2 text-center">
+          <Link
+            to="/replays"
+            className="inline-flex items-center gap-2 rounded-xl border border-purple-500/30 bg-purple-950/20 px-4 py-2 text-xs font-semibold text-purple-300 transition hover:bg-purple-900/30"
+          >
+            <span aria-hidden="true">🤖</span>
+            <span>No group right now? Play Solo &ldquo;Guess the Bot&rdquo; &rarr;</span>
+          </Link>
+        </div>
       </div>
     </main>
   );

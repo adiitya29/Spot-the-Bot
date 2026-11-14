@@ -1,4 +1,5 @@
 import type { LeaderboardEntry, RoundSummaryEntry } from "../types";
+import { ShareCard } from "./ShareCard";
 
 interface LeaderboardProps {
   entries: LeaderboardEntry[];
@@ -9,6 +10,7 @@ interface LeaderboardProps {
   isGameOver?: boolean;
   isHost?: boolean;
   disabled?: boolean;
+  roomCode?: string;
   onPlayAgain?: () => void;
 }
 
@@ -21,6 +23,7 @@ export function Leaderboard({
   isGameOver = false,
   isHost = false,
   disabled = false,
+  roomCode,
   onPlayAgain,
 }: LeaderboardProps) {
   return (
@@ -118,6 +121,8 @@ export function Leaderboard({
           </ul>
         </div>
       ) : null}
+
+      {isGameOver && roomCode ? <ShareCard roomCode={roomCode} /> : null}
 
       {isGameOver ? (
         isHost ? (
