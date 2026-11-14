@@ -187,3 +187,104 @@ export function clearRoomSession(code: string): void {
   const key = `${SESSION_STORAGE_PREFIX}${normalizeRoomCode(code)}`;
   window.localStorage.removeItem(key);
 }
+
+export interface ReplayListItem {
+  id: string;
+  room_code: string;
+  topic_category: string;
+  topic_text: string;
+  human_guesses_count: number;
+  correct_guesses_count: number;
+  solo_accuracy_rate: number;
+  solo_bot_fooled_rate: number;
+  created_at: string;
+}
+
+export interface ReplayTranscriptParticipant {
+  seat_id: string;
+  alias: string;
+  color_index: number;
+  nickname?: string;
+}
+
+export interface ReplayTranscriptAnswer {
+  seat_id: string;
+  alias: string;
+  text: string;
+  submitted_at?: string;
+}
+
+export interface ReplayTranscriptMessage {
+  id: string;
+  seat_id: string;
+  alias: string;
+  text: string;
+  latency_ms: number;
+  timestamp_ms?: number;
+}
+
+export interface ReplayDetail extends ReplayListItem {
+  transcript: {
+    participants: ReplayTranscriptParticipant[];
+    answers: ReplayTranscriptAnswer[];
+    messages: ReplayTranscriptMessage[];
+    outcome?: {
+      votes_on_bot: number;
+      human_voters: number;
+      bot_fooled: boolean;
+    };
+  };
+}
+
+export interface SoloGuessResponse {
+  correct: boolean;
+  guessed_alias: string;
+  bot_alias: string;
+  human_guesses_count: number;
+  correct_guesses_count: number;
+  solo_accuracy_rate: number;
+  solo_bot_fooled_rate: number;
+  explanation: string;
+}
+
+export interface BotGlobalStats {
+  live_games: {
+    total_rounds: number;
+    bot_fooled_count: number;
+    bot_fooled_rate: number;
+    total_votes_on_bot: number;
+    total_human_voters: number;
+    human_accuracy_rate: number;
+  };
+  solo_replays: {
+    total_replays_available: number;
+    total_guesses: number;
+    correct_guesses: number;
+    fooled_guesses: number;
+    bot_fooled_rate: number;
+  };
+  overall: {
+    total_encounters: number;
+    total_fooled: number;
+    bot_fooled_rate: number;
+  };
+}
+
+export async function getReplays(): Promise<ReplayListItem[]> {
+  return requestJson<ReplayListItem[]>("/replays/");
+}
+
+export async function getReplay(id: string): Promise<ReplayDetail> {
+  return requestJson<ReplayDetail>(`/replays/${encodeURIComponent(id)}/`);
+}
+
+export async function submitSoloGuess(id: string, alias: string): Promise<SoloGuessResponse> {
+  return requestJson<SoloGuessResponse>(`/replays/${encodeURIComponent(id)}/guess/`, {
+    method: "POST",
+    body: JSON.stringify({ alias }),
+  });
+}
+
+export async function getBotStats(): Promise<BotGlobalStats> {
+  return requestJson<BotGlobalStats>("/stats/bot/");
+}

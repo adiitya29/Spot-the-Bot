@@ -918,6 +918,11 @@ def advance_phase(
             round_obj.phase_ends_at = current_now
             round_obj.save(update_fields=["phase", "phase_ends_at"])
 
+            with contextlib.suppress(Exception):
+                from apps.replays.services import create_replay_case_from_round
+
+                create_replay_case_from_round(round_obj)
+
             total_rounds = int(room.config.get("rounds", 3))
             if round_obj.number < total_rounds:
                 next_round, next_seats, ends_at = _create_round_with_seats(

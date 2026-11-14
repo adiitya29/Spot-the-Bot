@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { getSeatColorTheme } from "../../../lib/constants";
+import { playCorrect, playRevealBot, playWrong } from "../../../lib/sound";
 import type { RevealPayload } from "../types";
 import { Leaderboard } from "./Leaderboard";
 
@@ -11,24 +13,39 @@ interface RevealStageProps {
 export function RevealStage({ reveal, mySeatId, myPlayerId }: RevealStageProps) {
   const isFinalRound = reveal.round_number >= reveal.total_rounds;
 
+  useEffect(() => {
+    // Trigger sound effects on reveal
+    playRevealBot();
+
+    const myEntry = reveal.tally.find((t) => t.seat_id === mySeatId);
+    if (myEntry) {
+      if (myEntry.round_points > 0) {
+        setTimeout(() => playCorrect(), 600);
+      } else {
+        setTimeout(() => playWrong(), 600);
+      }
+    }
+  }, [reveal.round_id, reveal.tally, mySeatId]);
+
   return (
     <div className="space-y-3">
       <section
         aria-label="Bot reveal"
-        className={`space-y-3 rounded-2xl border p-5 shadow-lg ${
+        className={`relative space-y-3 overflow-hidden rounded-2xl border p-5 shadow-xl transition-all duration-500 ${
           reveal.bot_fooled
-            ? "border-rose-500/40 bg-rose-950/25"
-            : "border-emerald-500/40 bg-emerald-950/25"
+            ? "border-rose-500/50 bg-rose-950/30 shadow-rose-950/20"
+            : "border-emerald-500/50 bg-emerald-950/30 shadow-emerald-950/20"
         }`}
       >
         <div className="flex items-center justify-between gap-2">
           <span
-            className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${
+            className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-xs font-bold tracking-wide uppercase transition-transform animate-pulse ${
               reveal.bot_fooled
                 ? "bg-rose-500/20 text-rose-200"
                 : "bg-emerald-500/20 text-emerald-200"
             }`}
           >
+            <span aria-hidden="true">{reveal.bot_fooled ? "🎭" : "🎯"}</span>
             {reveal.bot_fooled ? "The Bot Fooled You!" : "Bot Spotted!"}
           </span>
           <span className="font-mono text-xs text-slate-300">
@@ -37,7 +54,7 @@ export function RevealStage({ reveal, mySeatId, myPlayerId }: RevealStageProps) 
         </div>
 
         <div>
-          <h2 className="text-lg font-bold text-white">{reveal.bot_alias} was the AI Bot!</h2>
+          <h2 className="text-xl font-extrabold text-white">{reveal.bot_alias} was the AI Bot!</h2>
           <p className="mt-0.5 text-xs text-slate-300">
             Everyone who voted for {reveal.bot_alias} earned +100 points.
           </p>
@@ -50,9 +67,9 @@ export function RevealStage({ reveal, mySeatId, myPlayerId }: RevealStageProps) 
             return (
               <li
                 key={entry.seat_id}
-                className={`flex items-center justify-between gap-2 rounded-xl border px-3.5 py-2.5 ${
+                className={`flex items-center justify-between gap-2 rounded-xl border px-3.5 py-2.5 transition-all ${
                   entry.is_bot
-                    ? "border-rose-500/40 bg-slate-950/90"
+                    ? "border-rose-500/60 bg-slate-950/90 shadow-md shadow-rose-950/30"
                     : "border-slate-800 bg-slate-950/70"
                 }`}
               >
@@ -61,7 +78,7 @@ export function RevealStage({ reveal, mySeatId, myPlayerId }: RevealStageProps) 
                     <span aria-hidden="true" className={`h-2.5 w-2.5 rounded-full ${theme.dot}`} />
                     <span className={theme.text}>{entry.alias}</span>
                     {entry.is_bot ? (
-                      <span className="rounded bg-rose-500/20 px-1.5 py-0.5 text-[10px] font-bold text-rose-200 uppercase">
+                      <span className="rounded bg-rose-500/25 px-1.5 py-0.5 text-[10px] font-extrabold text-rose-200 uppercase tracking-wider">
                         AI Bot
                       </span>
                     ) : (
@@ -74,7 +91,7 @@ export function RevealStage({ reveal, mySeatId, myPlayerId }: RevealStageProps) 
                 </div>
                 <div className="flex items-center gap-2">
                   {entry.round_points > 0 ? (
-                    <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-mono text-[11px] font-semibold text-emerald-300">
+                    <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 font-mono text-[11px] font-bold text-emerald-300">
                       +{entry.round_points}
                     </span>
                   ) : null}
