@@ -10,14 +10,14 @@ test.describe("Spot the Bot E2E Smoke & Mobile Suite", () => {
     await expect(page.locator("h1")).toContainText("Spot the Bot");
 
     // Check create room form inputs
-    const nicknameInput = page.getByPlaceholder(/your host nickname/i);
+    const nicknameInput = page.locator("#create-nickname");
     await expect(nicknameInput).toBeVisible();
 
     const createButton = page.getByRole("button", { name: /create room/i });
     await expect(createButton).toBeVisible();
 
     // Check join room form inputs
-    const roomCodeInput = page.getByPlaceholder(/6-char code/i);
+    const roomCodeInput = page.getByLabel("Room code");
     await expect(roomCodeInput).toBeVisible();
 
     // Verify solo replay link banner is visible
@@ -26,18 +26,32 @@ test.describe("Spot the Bot E2E Smoke & Mobile Suite", () => {
   });
 
   test("navigates to replays gallery and verifies deception stats banner", async ({ page }) => {
-    // Intercept replay API calls with mock data for deterministic E2E validation
+    // Intercept replay API calls with valid BotGlobalStats structure
     await page.route("**/api/stats/bot/", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          total_replays: 10,
-          total_solo_guesses: 50,
-          correct_guesses: 20,
-          bot_fooled_original_count: 7,
-          bot_survival_rate_percent: 60.0,
-          original_bot_fooled_rate_percent: 70.0,
+          live_games: {
+            total_rounds: 10,
+            bot_fooled_count: 6,
+            bot_fooled_rate: 0.6,
+            total_votes_on_bot: 12,
+            total_human_voters: 30,
+            human_accuracy_rate: 0.4,
+          },
+          solo_replays: {
+            total_replays_available: 5,
+            total_guesses: 25,
+            correct_guesses: 10,
+            fooled_guesses: 15,
+            bot_fooled_rate: 0.6,
+          },
+          overall: {
+            total_encounters: 35,
+            total_fooled: 21,
+            bot_fooled_rate: 0.6,
+          },
         }),
       });
     });
@@ -65,8 +79,8 @@ test.describe("Spot the Bot E2E Smoke & Mobile Suite", () => {
 
     // Replay gallery header and stats banner
     await expect(page.locator("h1")).toContainText(/Guess The Bot/i);
-    await expect(page.getByText(/Bot Survival Rate/i)).toBeVisible();
-    await expect(page.getByText(/Total Solo Guesses/i)).toBeVisible();
+    await expect(page.getByText(/AI Deception Rate/i)).toBeVisible();
+    await expect(page.getByText(/Live Games Played/i)).toBeVisible();
   });
 
   test("verifies responsive layout without horizontal overflow on mobile viewport", async ({
