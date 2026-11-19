@@ -118,7 +118,7 @@ docker compose up --build
 ### 3. Open the Application:
 - **Frontend App**: [http://localhost:5173](http://localhost:5173)
 - **Backend Healthcheck**: [http://localhost:8000/api/health/](http://localhost:8000/api/health/)
-- **Solo Replays**: [http://localhost:5173/replays](http://localhost:5173/replays)
+- **Match Replays**: [http://localhost:5173/replays](http://localhost:5173/replays)
 
 ---
 
