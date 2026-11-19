@@ -98,4 +98,13 @@ class TokenAuthMiddleware:
                 scope["ws_auth"] = auth_ctx
                 scope["ws_auth_error"] = auth_error
 
-        return await self.application(scope, receive, send)
+        try:
+            return await self.application(scope, receive, send)
+        except (TimeoutError, Exception) as exc:
+            # Handle client disconnect where redis-py wraps CancelledError as TimeoutError
+            is_redis_timeout = (
+                exc.__class__.__name__ == "TimeoutError" and "redis" in exc.__class__.__module__
+            )
+            if isinstance(exc, TimeoutError) or is_redis_timeout:
+                return None
+            raise

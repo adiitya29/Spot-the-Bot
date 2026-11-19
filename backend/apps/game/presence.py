@@ -17,6 +17,41 @@ class PresenceManager:
         self._active_channels: dict[tuple[str, str], str] = {}
         self._present_players: dict[str, set[str]] = {}
         self._grace_tasks: dict[tuple[str, str], asyncio.Task[None]] = {}
+        self._redis_client: aioredis.Redis | None = None
+
+    def _get_redis(self) -> aioredis.Redis | None:
+        redis_url = getattr(settings, "REDIS_URL", "")
+        if not redis_url:
+            return None
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if self._redis_client is not None:
+            pool = getattr(self._redis_client, "connection_pool", None)
+            pool_loop = getattr(pool, "_loop", None)
+            if pool_loop is not None and (
+                pool_loop.is_closed() or (loop is not None and pool_loop is not loop)
+            ):
+                self._redis_client = None
+
+        if self._redis_client is None:
+            self._redis_client = aioredis.from_url(
+                redis_url,
+                decode_responses=True,
+                socket_connect_timeout=5.0,
+                socket_timeout=5.0,
+                retry_on_timeout=True,
+                health_check_interval=30,
+            )
+        return self._redis_client
+
+    async def close(self) -> None:
+        """Close shared Redis client connection pool."""
+        if self._redis_client is not None:
+            await self._redis_client.aclose()
+            self._redis_client = None
 
     @staticmethod
     def _active_key(room_code: str, player_id: str) -> str:
@@ -36,13 +71,12 @@ class PresenceManager:
         pid = str(player_id)
         self.cancel_grace_timer(room_code, player_id)
 
-        redis_url = getattr(settings, "REDIS_URL", "")
-        if redis_url:
-            async with aioredis.from_url(redis_url, decode_responses=True) as client:
-                key = self._active_key(room_code, pid)
-                previous = await client.getset(key, channel_name)
-                await client.expire(key, 86_400)
-                return str(previous) if previous and previous != channel_name else None
+        client = self._get_redis()
+        if client is not None:
+            key = self._active_key(room_code, pid)
+            previous = await client.getset(key, channel_name)
+            await client.expire(key, 86_400)
+            return str(previous) if previous and previous != channel_name else None
 
         pair = (room_code, pid)
         previous = self._active_channels.get(pair)
@@ -57,15 +91,14 @@ class PresenceManager:
     ) -> bool:
         """Clear active channel only if channel_name is still the current one."""
         pid = str(player_id)
-        redis_url = getattr(settings, "REDIS_URL", "")
-        if redis_url:
-            async with aioredis.from_url(redis_url, decode_responses=True) as client:
-                key = self._active_key(room_code, pid)
-                current = await client.get(key)
-                if current != channel_name:
-                    return False
-                await client.delete(key)
-                return True
+        client = self._get_redis()
+        if client is not None:
+            key = self._active_key(room_code, pid)
+            current = await client.get(key)
+            if current != channel_name:
+                return False
+            await client.delete(key)
+            return True
 
         pair = (room_code, pid)
         if self._active_channels.get(pair) != channel_name:
@@ -76,13 +109,12 @@ class PresenceManager:
     async def mark_present(self, room_code: str, player_id: UUID) -> bool:
         """Mark player present in lobby; return True if already present before this call."""
         pid = str(player_id)
-        redis_url = getattr(settings, "REDIS_URL", "")
-        if redis_url:
-            async with aioredis.from_url(redis_url, decode_responses=True) as client:
-                key = self._present_key(room_code)
-                added = await client.sadd(key, pid)
-                await client.expire(key, 86_400)
-                return added == 0
+        client = self._get_redis()
+        if client is not None:
+            key = self._present_key(room_code)
+            added = await client.sadd(key, pid)
+            await client.expire(key, 86_400)
+            return added == 0
 
         members = self._present_players.setdefault(room_code, set())
         was_present = pid in members
@@ -92,11 +124,10 @@ class PresenceManager:
     async def clear_present(self, room_code: str, player_id: UUID) -> bool:
         """Remove player from active presence set; return True if removed."""
         pid = str(player_id)
-        redis_url = getattr(settings, "REDIS_URL", "")
-        if redis_url:
-            async with aioredis.from_url(redis_url, decode_responses=True) as client:
-                removed = await client.srem(self._present_key(room_code), pid)
-                return removed > 0
+        client = self._get_redis()
+        if client is not None:
+            removed = await client.srem(self._present_key(room_code), pid)
+            return removed > 0
 
         members = self._present_players.get(room_code)
         if not members or pid not in members:
@@ -106,11 +137,10 @@ class PresenceManager:
 
     async def get_present_ids(self, room_code: str) -> set[str]:
         """Return the set of player UUID strings currently present in the room."""
-        redis_url = getattr(settings, "REDIS_URL", "")
-        if redis_url:
-            async with aioredis.from_url(redis_url, decode_responses=True) as client:
-                members = await client.smembers(self._present_key(room_code))
-                return {str(member) for member in members}
+        client = self._get_redis()
+        if client is not None:
+            members = await client.smembers(self._present_key(room_code))
+            return {str(member) for member in members}
 
         return set(self._present_players.get(room_code, set()))
 
@@ -157,12 +187,12 @@ class PresenceManager:
         self._active_channels.clear()
         self._present_players.clear()
 
-        redis_url = getattr(settings, "REDIS_URL", "")
-        if redis_url:
-            async with aioredis.from_url(redis_url, decode_responses=True) as client:
-                keys = [key async for key in client.scan_iter(match="stb:ws:*")]
-                if keys:
-                    await client.delete(*keys)
+        client = self._get_redis()
+        if client is not None:
+            keys = [key async for key in client.scan_iter(match="stb:ws:*")]
+            if keys:
+                await client.delete(*keys)
+        await self.close()
 
 
 presence_manager = PresenceManager()

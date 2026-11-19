@@ -134,10 +134,6 @@ export function useRoomSocket(roomCode: string, token: string | null) {
           if (frame.seq <= currentLastSeq) {
             return;
           }
-          if (frame.seq > currentLastSeq + 1) {
-            ws.close(CLOSE_SEQ_GAP, "seq_gap");
-            return;
-          }
         }
 
         if (typeof frame.seq !== "number") {
