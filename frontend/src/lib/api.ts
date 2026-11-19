@@ -152,12 +152,34 @@ export async function joinRoom(code: string, nickname: string): Promise<JoinRoom
 
 export function saveRoomSession(session: GuestSession): void {
   const key = `${SESSION_STORAGE_PREFIX}${normalizeRoomCode(session.roomCode)}`;
-  window.localStorage.setItem(key, JSON.stringify(session));
+  const value = JSON.stringify(session);
+  try {
+    window.sessionStorage.setItem(key, value);
+  } catch {
+    // Ignore storage quota errors
+  }
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Ignore storage quota errors
+  }
 }
 
 export function loadRoomSession(code: string): GuestSession | null {
   const key = `${SESSION_STORAGE_PREFIX}${normalizeRoomCode(code)}`;
-  const raw = window.localStorage.getItem(key);
+  let raw: string | null = null;
+  try {
+    raw = window.sessionStorage.getItem(key);
+  } catch {
+    // Ignore
+  }
+  if (!raw) {
+    try {
+      raw = window.localStorage.getItem(key);
+    } catch {
+      // Ignore
+    }
+  }
   if (!raw) {
     return null;
   }
@@ -178,14 +200,23 @@ export function loadRoomSession(code: string): GuestSession | null {
       };
     }
   } catch {
-    // Ignore malformed localStorage entries
+    // Ignore malformed storage entries
   }
   return null;
 }
 
 export function clearRoomSession(code: string): void {
   const key = `${SESSION_STORAGE_PREFIX}${normalizeRoomCode(code)}`;
-  window.localStorage.removeItem(key);
+  try {
+    window.sessionStorage.removeItem(key);
+  } catch {
+    // Ignore
+  }
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Ignore
+  }
 }
 
 export interface ReplayListItem {
