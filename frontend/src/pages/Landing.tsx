@@ -71,134 +71,176 @@ export function Landing() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-8">
-      <div className="space-y-6">
+    <main className="mx-auto flex min-h-[100dvh] w-full max-w-5xl flex-col justify-center px-4 py-8 sm:px-6 lg:px-8">
+      <div className="space-y-8">
         <header className="text-center">
-          <span className="inline-block rounded-full border border-teal-500/30 bg-teal-500/10 px-3 py-1 text-xs font-semibold tracking-wide text-teal-300 uppercase">
+          <span className="inline-flex items-center gap-2 rounded-full border border-teal-500/30 bg-teal-500/10 px-3.5 py-1 text-xs font-semibold tracking-wider text-teal-300 uppercase shadow-inner">
+            <span
+              aria-hidden="true"
+              className="h-1.5 w-1.5 rounded-full bg-teal-400 animate-pulse"
+            />
             Social Deduction Party Game
           </span>
-          <h1 className="mt-3 text-4xl font-extrabold tracking-tight text-white">Spot the Bot</h1>
-          <p className="mt-2 text-sm text-slate-400">
-            Chat under random aliases with 4–7 friends. One player in the room is an AI blending in.
+          <h1 className="mt-3 text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-100 to-slate-400">
+            Spot the Bot
+          </h1>
+          <p className="mt-3 text-sm sm:text-base max-w-xl mx-auto text-slate-300 leading-relaxed">
+            Chat under random aliases with 4–7 friends. One player in the room is secretly an AI
+            blending in.
           </p>
         </header>
 
-        <section className="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 shadow-xl">
-          <h2 className="text-lg font-bold text-white">Create a Room</h2>
-          <form onSubmit={handleCreate} className="mt-4 space-y-4">
-            <div>
-              <label htmlFor="create-nickname" className="block text-xs font-medium text-slate-300">
-                Your Nickname
-              </label>
-              <input
-                id="create-nickname"
-                type="text"
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
-                minLength={NICKNAME_MIN_LENGTH}
-                maxLength={NICKNAME_MAX_LENGTH}
-                placeholder="e.g. Alex"
-                className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 text-sm text-white placeholder:text-slate-500 focus:border-teal-400 focus:outline-none"
-              />
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+          <section className="md:col-span-7 rounded-3xl border border-white/10 bg-slate-900/60 backdrop-blur-xl p-6 sm:p-8 shadow-2xl shadow-indigo-950/30 hover:border-white/15 transition-all">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold tracking-tight text-white">Create a Room</h2>
+              <span className="text-xs font-medium text-teal-400/80 bg-teal-500/10 px-2.5 py-1 rounded-full border border-teal-500/20">
+                Host Game
+              </span>
             </div>
-
-            <button
-              type="button"
-              onClick={() => setShowSettings((prev) => !prev)}
-              className="text-xs font-medium text-teal-300 hover:text-teal-200"
-            >
-              {showSettings ? "Hide room settings" : "Customize room settings"}
-            </button>
-
-            {showSettings ? (
-              <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/70 p-3.5 text-sm">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label htmlFor="rounds-input" className="block text-xs text-slate-400">
-                      Rounds
-                    </label>
-                    <input
-                      id="rounds-input"
-                      type="number"
-                      min={1}
-                      max={10}
-                      value={rounds}
-                      onChange={(e) => setRounds(Number(e.target.value) || 3)}
-                      className="mt-1 min-h-11 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-white"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="min-humans-input" className="block text-xs text-slate-400">
-                      Min Humans
-                    </label>
-                    <input
-                      id="min-humans-input"
-                      type="number"
-                      min={3}
-                      max={7}
-                      value={minHumans}
-                      onChange={(e) => setMinHumans(Number(e.target.value) || 3)}
-                      className="mt-1 min-h-11 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-white"
-                    />
-                  </div>
-                </div>
-
-                <label className="flex items-start gap-2.5 text-xs text-slate-300">
-                  <input
-                    type="checkbox"
-                    checked={allowReplayUse}
-                    onChange={(e) => setAllowReplayUse(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-slate-600 bg-slate-900 text-teal-500"
-                  />
-                  <span>
-                    Allow anonymized transcript for public match replays and research (disclosed to
-                    joining players).
-                  </span>
+            <form onSubmit={handleCreate} className="space-y-4">
+              <div>
+                <label
+                  htmlFor="create-nickname"
+                  className="block text-xs font-semibold tracking-wide text-slate-300 uppercase"
+                >
+                  Your Nickname
                 </label>
+                <input
+                  id="create-nickname"
+                  type="text"
+                  value={nickname}
+                  onChange={(e) => setNickname(e.target.value)}
+                  minLength={NICKNAME_MIN_LENGTH}
+                  maxLength={NICKNAME_MAX_LENGTH}
+                  placeholder="e.g. Alex"
+                  className="mt-1.5 min-h-12 w-full rounded-xl border border-slate-700 bg-slate-950/80 px-4 text-base text-white placeholder:text-slate-500 focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20 focus:outline-none transition-all"
+                />
               </div>
-            ) : null}
 
-            {formError ? (
-              <p role="alert" className="rounded-lg bg-rose-500/10 px-3 py-2 text-xs text-rose-300">
-                {formError}
-              </p>
-            ) : null}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowSettings((prev) => !prev)}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-teal-300 hover:text-teal-200 transition-colors"
+                >
+                  <span aria-hidden="true">{showSettings ? "▾" : "▸"}</span>
+                  {showSettings ? "Hide room settings" : "Customize room settings"}
+                </button>
+              </div>
 
-            <button
-              type="submit"
-              disabled={createMutation.isPending}
-              className="min-h-11 w-full rounded-xl bg-teal-500 px-4 text-sm font-semibold text-slate-950 transition hover:bg-teal-400 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {createMutation.isPending ? "Creating room..." : "Create Room"}
-            </button>
-          </form>
-        </section>
+              {showSettings ? (
+                <div className="space-y-3.5 rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-sm animate-in fade-in duration-200">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label
+                        htmlFor="rounds-input"
+                        className="block text-xs font-medium text-slate-400"
+                      >
+                        Rounds
+                      </label>
+                      <input
+                        id="rounds-input"
+                        type="number"
+                        min={1}
+                        max={10}
+                        value={rounds}
+                        onChange={(e) => setRounds(Number(e.target.value) || 3)}
+                        className="mt-1 min-h-11 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-teal-400 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="min-humans-input"
+                        className="block text-xs font-medium text-slate-400"
+                      >
+                        Min Humans
+                      </label>
+                      <input
+                        id="min-humans-input"
+                        type="number"
+                        min={3}
+                        max={7}
+                        value={minHumans}
+                        onChange={(e) => setMinHumans(Number(e.target.value) || 3)}
+                        className="mt-1 min-h-11 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-teal-400 focus:outline-none"
+                      />
+                    </div>
+                  </div>
 
-        <section className="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 shadow-xl">
-          <h2 className="text-lg font-bold text-white">Join with Code</h2>
-          <form onSubmit={handleJoinNavigate} className="mt-3 flex gap-2">
-            <input
-              type="text"
-              value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-              maxLength={ROOM_CODE_LENGTH}
-              placeholder="ABC234"
-              aria-label="Room code"
-              className="min-h-11 flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3.5 font-mono text-sm tracking-widest text-white uppercase placeholder:tracking-normal placeholder:text-slate-500 focus:border-teal-400 focus:outline-none"
-            />
-            <button
-              type="submit"
-              className="min-h-11 rounded-xl border border-slate-700 bg-slate-800 px-5 text-sm font-semibold text-white transition hover:bg-slate-700"
-            >
-              Join
-            </button>
-          </form>
-          {joinError ? (
-            <p role="alert" className="mt-2 text-xs text-rose-300">
-              {joinError}
+                  <label className="flex items-start gap-2.5 text-xs text-slate-300 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={allowReplayUse}
+                      onChange={(e) => setAllowReplayUse(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-slate-600 bg-slate-900 text-teal-500 focus:ring-teal-400/20"
+                    />
+                    <span className="leading-relaxed">
+                      Allow anonymized transcript for public match replays and research (disclosed
+                      to joining players).
+                    </span>
+                  </label>
+                </div>
+              ) : null}
+
+              {formError ? (
+                <p
+                  role="alert"
+                  className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-xs font-medium text-rose-300"
+                >
+                  {formError}
+                </p>
+              ) : null}
+
+              <button
+                type="submit"
+                disabled={createMutation.isPending}
+                className="min-h-12 w-full rounded-xl bg-gradient-to-r from-teal-400 via-emerald-400 to-teal-500 px-6 py-3 text-base font-bold text-slate-950 shadow-lg shadow-teal-500/20 transition-all hover:shadow-teal-400/30 hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {createMutation.isPending ? "Creating room..." : "Create Room"}
+              </button>
+            </form>
+          </section>
+
+          <section className="md:col-span-5 rounded-3xl border border-white/10 bg-slate-900/60 backdrop-blur-xl p-6 sm:p-8 shadow-2xl shadow-indigo-950/30 hover:border-white/15 transition-all">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold tracking-tight text-white">Join with Code</h2>
+              <span className="text-xs font-medium text-indigo-400/80 bg-indigo-500/10 px-2.5 py-1 rounded-full border border-indigo-500/20">
+                Join Match
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mb-4">
+              Have a 6-character room code from a friend? Enter it below to join the lobby.
             </p>
-          ) : null}
-        </section>
+            <form onSubmit={handleJoinNavigate} className="space-y-3">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  maxLength={ROOM_CODE_LENGTH}
+                  placeholder="ABC234"
+                  aria-label="Room code"
+                  className="min-h-12 flex-1 rounded-xl border border-slate-700 bg-slate-950/80 px-4 font-mono text-base tracking-widest text-white uppercase placeholder:tracking-normal placeholder:text-slate-500 focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20 focus:outline-none transition-all"
+                />
+                <button
+                  type="submit"
+                  className="min-h-12 rounded-xl border border-slate-700 bg-slate-800/90 px-6 text-sm font-bold text-white transition-all hover:bg-slate-700 hover:border-slate-600 active:scale-[0.98]"
+                >
+                  Join
+                </button>
+              </div>
+              {joinError ? (
+                <p
+                  role="alert"
+                  className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2 text-xs font-medium text-rose-300"
+                >
+                  {joinError}
+                </p>
+              ) : null}
+            </form>
+          </section>
+        </div>
       </div>
     </main>
   );

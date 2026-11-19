@@ -62,7 +62,7 @@ export function Room() {
   const isHost = Boolean(me?.is_host);
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-lg flex-col gap-3 px-4 py-5">
+    <main className="mx-auto flex min-h-[100dvh] w-full max-w-4xl flex-col gap-4 px-4 py-5 sm:px-6">
       <ConnectionBanner
         status={roomState.socketStatus}
         code={code}

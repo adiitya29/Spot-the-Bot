@@ -66,36 +66,46 @@ export function Join() {
           : null;
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-8">
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-xl">
+    <main className="mx-auto flex min-h-[100dvh] w-full max-w-xl flex-col justify-center px-4 py-8 sm:px-6">
+      <div className="rounded-3xl border border-white/10 bg-slate-900/60 backdrop-blur-xl p-6 sm:p-8 shadow-2xl shadow-indigo-950/30">
         <div className="flex items-center justify-between">
-          <span className="font-mono text-sm font-bold tracking-widest text-teal-300">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-500/15 border border-teal-500/30 px-3.5 py-1 font-mono text-xs font-bold tracking-widest text-teal-300 shadow-inner">
+            <span
+              aria-hidden="true"
+              className="h-1.5 w-1.5 rounded-full bg-teal-400 animate-pulse"
+            />
             ROOM {code}
           </span>
-          <Link to="/" className="text-xs text-slate-400 hover:text-slate-200">
-            Back home
+          <Link
+            to="/"
+            className="text-xs font-medium text-slate-400 hover:text-white transition-colors"
+          >
+            &larr; Back home
           </Link>
         </div>
 
-        <h1 className="mt-3 text-2xl font-bold text-white">Join Game</h1>
+        <h1 className="mt-4 text-3xl font-black tracking-tight text-white">Join Game</h1>
 
         {roomQuery.isLoading ? (
-          <p className="mt-4 text-sm text-slate-400">Checking room availability...</p>
+          <p className="mt-4 text-sm text-slate-400 animate-pulse">Checking room availability...</p>
         ) : roomQuery.isError ? (
-          <div className="mt-4 space-y-4">
-            <p role="alert" className="rounded-xl bg-rose-500/10 p-3 text-sm text-rose-300">
+          <div className="mt-5 space-y-4">
+            <p
+              role="alert"
+              className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm font-medium text-rose-300"
+            >
               Room {code} was not found. Check the code and try again.
             </p>
             <Link
               to="/"
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-slate-800 text-sm font-semibold text-white hover:bg-slate-700"
+              className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-slate-800 text-sm font-bold text-white transition hover:bg-slate-700"
             >
               Return Home
             </Link>
           </div>
         ) : room ? (
           <>
-            <div className="mt-4 space-y-2 rounded-xl border border-slate-800 bg-slate-950/70 p-4 text-xs text-slate-300">
+            <div className="mt-5 space-y-2.5 rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-xs text-slate-300">
               <div className="flex items-center justify-between">
                 <span className="text-slate-400">Seats Filled</span>
                 <span className="font-semibold text-white">
@@ -104,9 +114,9 @@ export function Join() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-400">Status</span>
-                <span className="font-mono text-teal-300 uppercase">{room.status}</span>
+                <span className="font-mono font-bold text-teal-300 uppercase">{room.status}</span>
               </div>
-              <p className="border-t border-slate-800 pt-2 text-slate-400">
+              <p className="border-t border-slate-800/80 pt-2.5 text-slate-400 leading-relaxed">
                 {room.allow_replay_use
                   ? "Privacy notice: Host enabled anonymized public replays for this room."
                   : "Privacy notice: Public replays are disabled for this room."}
@@ -116,16 +126,16 @@ export function Join() {
             {blockedReason ? (
               <p
                 role="alert"
-                className="mt-4 rounded-xl bg-amber-500/10 p-3 text-sm text-amber-300"
+                className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm font-medium text-amber-300"
               >
                 {blockedReason}
               </p>
             ) : (
-              <form onSubmit={handleJoin} className="mt-5 space-y-4">
+              <form onSubmit={handleJoin} className="mt-6 space-y-4">
                 <div>
                   <label
                     htmlFor="join-nickname"
-                    className="block text-xs font-medium text-slate-300"
+                    className="block text-xs font-semibold tracking-wide text-slate-300 uppercase"
                   >
                     Choose Nickname
                   </label>
@@ -137,14 +147,14 @@ export function Join() {
                     minLength={NICKNAME_MIN_LENGTH}
                     maxLength={NICKNAME_MAX_LENGTH}
                     placeholder="2–20 characters"
-                    className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 text-sm text-white placeholder:text-slate-500 focus:border-teal-400 focus:outline-none"
+                    className="mt-1.5 min-h-12 w-full rounded-xl border border-slate-700 bg-slate-950/80 px-4 text-base text-white placeholder:text-slate-500 focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20 focus:outline-none transition-all"
                   />
                 </div>
 
                 {errorMsg ? (
                   <p
                     role="alert"
-                    className="rounded-lg bg-rose-500/10 px-3 py-2 text-xs text-rose-300"
+                    className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-xs font-medium text-rose-300"
                   >
                     {errorMsg}
                   </p>
@@ -153,7 +163,7 @@ export function Join() {
                 <button
                   type="submit"
                   disabled={joinMutation.isPending}
-                  className="min-h-11 w-full rounded-xl bg-teal-500 px-4 text-sm font-semibold text-slate-950 transition hover:bg-teal-400 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="min-h-12 w-full rounded-xl bg-gradient-to-r from-teal-400 via-emerald-400 to-teal-500 px-6 py-3 text-base font-bold text-slate-950 shadow-lg shadow-teal-500/20 transition-all hover:shadow-teal-400/30 hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {joinMutation.isPending ? "Joining..." : "Join Lobby"}
                 </button>

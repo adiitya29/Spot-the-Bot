@@ -166,7 +166,7 @@ def test_state_machine_full_answer_chat_transitions_with_injected_clock() -> Non
 @pytest.mark.django_db(transaction=True)
 def test_advance_phase_double_delivery_is_idempotent() -> None:
     """Delivering the same ANSWER->CHAT deadline twice only transitions and logs once."""
-    now = datetime(2026, 11, 12, 13, 0, 0, tzinfo=UTC)
+    now = datetime.now(tz=UTC) + timedelta(days=10)
     clock = lambda: now  # noqa: E731
 
     room = RoomFactory(

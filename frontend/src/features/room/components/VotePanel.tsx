@@ -33,29 +33,32 @@ export function VotePanel({
   return (
     <section
       aria-label="Vote for the bot"
-      className="space-y-3 rounded-2xl border border-slate-800 bg-slate-900/95 p-5 shadow-lg"
+      className="space-y-4 rounded-2xl border border-white/10 bg-slate-900/60 p-5 shadow-xl backdrop-blur-xl sm:p-6"
     >
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/5 pb-4">
         <div>
-          <h2 className="text-base font-bold text-white">Who is the AI Bot?</h2>
-          <p className="text-xs text-slate-400">
+          <h2 className="text-lg font-black tracking-tight text-white sm:text-xl">
+            Who is the AI Bot?
+          </h2>
+          <p className="mt-0.5 text-xs text-slate-400">
             {hasVoted
               ? "Vote locked in. Waiting for everyone else..."
               : "Pick the suspect seat and lock in your vote (+100 pts if right)."}
           </p>
         </div>
-        <span className="rounded-full bg-slate-800 px-3 py-1 font-mono text-xs font-semibold text-slate-200">
+        <span className="rounded-lg border border-white/10 bg-black/40 px-3 py-1 font-mono text-xs font-bold text-slate-300">
           {votesCast}/{totalHumans || seats.length - 1} voted
         </span>
       </div>
 
       {hasVoted && lockedCandidate ? (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2.5 text-xs font-semibold text-emerald-200">
-          You voted for {lockedCandidate.alias}
+        <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/15 px-4 py-3 text-xs font-bold text-emerald-200 shadow-sm">
+          <span aria-hidden="true" className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span>You voted for {lockedCandidate.alias}</span>
         </div>
       ) : null}
 
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
         {candidates.map((seat) => {
           const theme = getSeatColorTheme(seat.color_index);
           const isSelected = effectiveTarget === seat.seat_id;
@@ -67,28 +70,33 @@ export function VotePanel({
               disabled={hasVoted || disabled}
               aria-pressed={isSelected}
               onClick={() => setSelectedSeatId(seat.seat_id)}
-              className={`min-h-14 rounded-xl border p-3 text-left transition disabled:cursor-not-allowed ${
+              className={`flex flex-col justify-between rounded-xl border p-4 text-left transition-all disabled:cursor-not-allowed ${
                 isSelected
-                  ? "border-teal-400 bg-teal-500/15 ring-1 ring-teal-400"
-                  : "border-slate-800 bg-slate-950/70 hover:border-slate-700"
+                  ? "border-teal-400 bg-teal-500/15 shadow-lg shadow-teal-500/10 ring-2 ring-teal-400/50"
+                  : "border-white/10 bg-black/40 hover:border-white/20 hover:bg-white/5"
               }`}
             >
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 text-xs font-semibold">
-                  <span aria-hidden="true" className={`h-2.5 w-2.5 rounded-full ${theme.dot}`} />
-                  <span className={theme.text}>{seat.alias}</span>
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-xs font-bold">
+                    <span
+                      aria-hidden="true"
+                      className={`h-2.5 w-2.5 rounded-full ring-2 ring-white/10 ${theme.dot}`}
+                    />
+                    <span className={theme.text}>{seat.alias}</span>
+                  </div>
+                  {isSelected ? (
+                    <span className="rounded-md bg-teal-400/20 px-2 py-0.5 text-[10px] font-extrabold tracking-wider text-teal-300 uppercase">
+                      {hasVoted ? "Voted" : "Selected"}
+                    </span>
+                  ) : null}
                 </div>
-                {isSelected ? (
-                  <span className="text-[10px] font-bold tracking-wide text-teal-300 uppercase">
-                    {hasVoted ? "Voted" : "Selected"}
-                  </span>
+                {answerText ? (
+                  <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-slate-300 italic">
+                    “{answerText}”
+                  </p>
                 ) : null}
               </div>
-              {answerText ? (
-                <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-slate-300">
-                  “{answerText}”
-                </p>
-              ) : null}
             </button>
           );
         })}
@@ -103,7 +111,7 @@ export function VotePanel({
               onCastVote(selectedSeatId);
             }
           }}
-          className="min-h-11 w-full rounded-xl bg-teal-500 px-4 text-sm font-semibold text-slate-950 transition hover:bg-teal-400 disabled:cursor-not-allowed disabled:opacity-50"
+          className="min-h-12 w-full rounded-xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 px-5 text-sm font-bold text-slate-950 shadow-lg shadow-teal-500/25 transition-all hover:brightness-110 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100 disabled:active:scale-100"
         >
           Lock In Vote
         </button>

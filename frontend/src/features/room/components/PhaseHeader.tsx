@@ -51,39 +51,44 @@ export function PhaseHeader({
   const isUrgent = remainingSeconds > 0 && remainingSeconds <= 10;
 
   return (
-    <header className="space-y-3 rounded-2xl border border-slate-800 bg-slate-900/95 p-4 shadow-lg">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="rounded-full bg-slate-800 px-2.5 py-1 font-mono text-[11px] font-semibold tracking-wider text-slate-300">
+    <header className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 shadow-xl backdrop-blur-xl sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <span className="rounded-lg border border-white/10 bg-black/40 px-3 py-1 font-mono text-xs font-bold tracking-widest text-slate-300">
             ROOM {code}
           </span>
-          <span className="rounded-full bg-teal-500/15 px-2.5 py-1 text-xs font-semibold text-teal-300">
+          <span className="rounded-lg border border-teal-500/20 bg-teal-500/10 px-3 py-1 font-mono text-xs font-semibold text-teal-300">
             Round {roundNumber} of {totalRounds}
           </span>
         </div>
         <div
           aria-live="polite"
           aria-label="Time remaining"
-          className={`rounded-xl border px-3 py-1 font-mono text-base font-bold tabular-nums ${
+          className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-1.5 font-mono text-base font-bold tabular-nums shadow-inner transition-all ${
             isUrgent
-              ? "border-rose-500/40 bg-rose-500/15 text-rose-300"
-              : "border-slate-700 bg-slate-950 text-white"
+              ? "border-rose-500/50 bg-rose-500/20 text-rose-300 animate-pulse ring-2 ring-rose-500/30"
+              : "border-white/10 bg-black/50 text-white"
           }`}
         >
-          {formatCountdown(remainingSeconds)}
+          <span className="text-xs opacity-60">⏱</span>
+          <span>{formatCountdown(remainingSeconds)}</span>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-sm font-semibold text-slate-200">
-          Phase: {PHASE_LABELS[phase] ?? phase}
-        </span>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-white/5 pt-3">
+        <div className="flex items-center gap-2 text-sm font-semibold text-slate-200">
+          <span className="text-xs uppercase tracking-wider text-slate-400">Phase:</span>
+          <span className="text-white font-bold">{PHASE_LABELS[phase] ?? phase}</span>
+        </div>
 
         {mySeat && theme ? (
           <div
-            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${theme.badge} ${theme.text}`}
+            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold shadow-sm ${theme.badge} ${theme.text}`}
           >
-            <span aria-hidden="true" className={`h-2 w-2 rounded-full ${theme.dot}`} />
+            <span
+              aria-hidden="true"
+              className={`h-2 w-2 rounded-full ring-2 ring-white/20 ${theme.dot}`}
+            />
             <span>You are {mySeat.alias}</span>
           </div>
         ) : null}
