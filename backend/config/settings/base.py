@@ -30,11 +30,36 @@ if env_file.exists():
 
 SECRET_KEY = env("DJANGO_SECRET_KEY", default="unsafe-placeholder-override-in-env")
 DEBUG: bool = env("DJANGO_DEBUG")
-ALLOWED_HOSTS: list[str] = env("ALLOWED_HOSTS")
+ALLOWED_HOSTS: list[str] = env.list(
+    "ALLOWED_HOSTS",
+    default=["localhost", "127.0.0.1", ".onrender.com"],
+)
 CSRF_TRUSTED_ORIGINS: list[str] = env.list(
     "CSRF_TRUSTED_ORIGINS",
-    default=["http://localhost:5173", "http://127.0.0.1:5173"],
+    default=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "https://*.vercel.app",
+        "https://*.onrender.com",
+    ],
 )
+
+CORS_ALLOW_ALL_ORIGINS: bool = env.bool("CORS_ALLOW_ALL_ORIGINS", default=False)
+CORS_ALLOWED_ORIGINS: list[str] = env.list(
+    "CORS_ALLOWED_ORIGINS",
+    default=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+)
+_frontend_origin = env("FRONTEND_ORIGIN", default="")
+if _frontend_origin and _frontend_origin not in CORS_ALLOWED_ORIGINS:
+    CORS_ALLOWED_ORIGINS.append(_frontend_origin)
+
+CORS_ALLOWED_ORIGIN_REGEXES: list[str] = [
+    r"^https:\/\/.*\.vercel\.app$",
+]
+CORS_ALLOW_CREDENTIALS: bool = True
 
 INSTALLED_APPS = [
     "daphne",
@@ -44,6 +69,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "corsheaders",
     "rest_framework",
     "channels",
     "apps.common",
@@ -55,6 +81,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",

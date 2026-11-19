@@ -1,4 +1,11 @@
-export const API_BASE = "/api";
+const envBackendUrl = (
+  (typeof import.meta !== "undefined" && import.meta.env
+    ? import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL
+    : "") || ""
+).trim();
+
+export const BACKEND_URL = envBackendUrl.replace(/\/+$/, "");
+export const API_BASE = BACKEND_URL ? `${BACKEND_URL}/api` : "/api";
 export const WS_ECHO_PATH = "/ws/echo/";
 export const PROTOCOL_VERSION = 1;
 

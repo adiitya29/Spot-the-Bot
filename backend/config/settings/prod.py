@@ -13,7 +13,10 @@ from config.settings.base import REST_FRAMEWORK, SENTRY_DSN, env
 # Security & Environment Validation
 DEBUG = False
 SECRET_KEY = env("DJANGO_SECRET_KEY")
-ALLOWED_HOSTS: list[str] = env.list("ALLOWED_HOSTS")
+ALLOWED_HOSTS: list[str] = env.list(
+    "ALLOWED_HOSTS",
+    default=["localhost", "127.0.0.1", ".onrender.com"],
+)
 
 # Database & Cache
 DATABASES = {
@@ -58,10 +61,28 @@ SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 
-# CSRF Trusted Origins
-frontend_origin = env("FRONTEND_ORIGIN", default="https://spotthebot.app")
+# CSRF & CORS Trusted Origins
+frontend_origin = env("FRONTEND_ORIGIN", default="")
 configured_csrf = env.list("CSRF_TRUSTED_ORIGINS", default=[])
-CSRF_TRUSTED_ORIGINS = configured_csrf or [frontend_origin]
+CSRF_TRUSTED_ORIGINS = configured_csrf or [
+    "https://*.vercel.app",
+    "https://*.onrender.com",
+]
+if frontend_origin and frontend_origin not in CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS.append(frontend_origin)
+
+CORS_ALLOW_ALL_ORIGINS = env.bool("CORS_ALLOW_ALL_ORIGINS", default=False)
+configured_cors = env.list("CORS_ALLOWED_ORIGINS", default=[])
+CORS_ALLOWED_ORIGINS = configured_cors or [
+    "https://*.vercel.app",
+]
+if frontend_origin and frontend_origin not in CORS_ALLOWED_ORIGINS:
+    CORS_ALLOWED_ORIGINS.append(frontend_origin)
+
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https:\/\/.*\.vercel\.app$",
+]
+CORS_ALLOW_CREDENTIALS = True
 
 # DRF Throttle Client IP Resolution behind Nginx Reverse Proxy
 REST_FRAMEWORK["NUM_PROXIES"] = env.int("NUM_PROXIES", default=1)

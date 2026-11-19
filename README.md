@@ -147,7 +147,69 @@ npm run test:e2e
 
 ---
 
-## 6. Performance & k6 WebSocket Load Testing
+## 7. Cloud Deployment (Render + Vercel + PostgreSQL)
+
+The stack is production-ready for deployment with **PostgreSQL** & **Render** for the backend, and **Vercel** for the frontend.
+
+### A. Deploy Backend & Database on Render
+
+1. **Create PostgreSQL Database on Render**:
+   - In Render Dashboard, click **New +** → **PostgreSQL**.
+   - Name: `spot-the-bot-db` (Database: `spotbot`, User: `spotbot`).
+   - Copy the **Internal Database URL** (or External URL).
+
+2. **Create Redis Service** (for WebSocket Channel Layer & Cache):
+   - In Render Dashboard, click **New +** → **Redis** (or create a free Redis instance on [Upstash](https://upstash.com/)).
+   - Copy the **Redis Connection URL** (`redis://...` or `rediss://...`).
+
+3. **Deploy Web Service on Render**:
+   - In Render Dashboard, click **New +** → **Web Service** → Connect your GitHub repo.
+   - **Root Directory**: `backend`
+   - **Runtime**: `Python`
+   - **Build Command**:
+     ```bash
+     pip install -r requirements.txt && python manage.py collectstatic --noinput
+     ```
+   - **Start Command**:
+     ```bash
+     bash scripts/start_render.sh
+     ```
+     *(This script automatically runs migrations, seeds default topics, and starts the phase advance scheduler and Celery worker alongside the Daphne ASGI server on Render's dynamic `$PORT`)*.
+   - **Environment Variables**:
+     | Key | Recommended Value |
+     | :--- | :--- |
+     | `DJANGO_SETTINGS_MODULE` | `config.settings.prod` |
+     | `DJANGO_SECRET_KEY` | *(Click "Generate" in Render for a secure random key)* |
+     | `DATABASE_URL` | *(Paste PostgreSQL URL from Step 1)* |
+     | `REDIS_URL` | *(Paste Redis URL from Step 2)* |
+     | `CELERY_BROKER_URL` | *(Paste Redis URL from Step 2)* |
+     | `ALLOWED_HOSTS` | `.onrender.com,localhost,127.0.0.1` |
+     | `FRONTEND_ORIGIN` | `https://<your-project>.vercel.app` |
+     | `CSRF_TRUSTED_ORIGINS` | `https://*.vercel.app,https://*.onrender.com` |
+     | `LLM_PROVIDER` | `groq` |
+     | `LLM_MODEL` | `llama-3.3-70b-versatile` |
+     | `LLM_API_KEY` | *(Your Groq API key: `gsk_...`)* |
+     | `SECURE_SSL_REDIRECT` | `true` |
+
+*(Alternatively, you can use Render Blueprint with the included `render.yaml` for 1-click infrastructure deployment).*
+
+---
+
+### B. Deploy Frontend on Vercel
+
+1. **Import Project to Vercel**:
+   - In Vercel Dashboard, click **Add New...** → **Project** → Import your GitHub repository.
+   - **Root Directory**: Select `frontend` (or leave default root, both are supported via `vercel.json`).
+   - **Framework Preset**: `Vite` (auto-detected).
+2. **Configure Environment Variables**:
+   - Add:
+     - `VITE_BACKEND_URL`: `https://<your-render-backend-name>.onrender.com`
+3. **Deploy**:
+   - Click **Deploy**. Vercel will build the frontend and serve it globally with full Single Page Application (SPA) routing.
+
+---
+
+## 8. Performance & k6 WebSocket Load Testing
 
 A dedicated k6 load test script ([scripts/loadtest.js](scripts/loadtest.js)) benchmarks WebSocket fan-out latency across **100 concurrent rooms** and **600 active clients**.
 

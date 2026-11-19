@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import { PROTOCOL_VERSION, normalizeRoomCode } from "../../lib/constants";
+import { BACKEND_URL, PROTOCOL_VERSION, normalizeRoomCode } from "../../lib/constants";
 import { useRoomStore } from "./roomStore";
 import type {
   AnswersRevealedPayload,
@@ -71,8 +71,14 @@ export function useRoomSocket(roomCode: string, token: string | null) {
       }
       dispatch({ type: "ws_status", status: attempt === 0 ? "connecting" : "reconnecting" });
 
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const url = `${protocol}//${window.location.host}/ws/rooms/${encodeURIComponent(normalizedCode)}/?token=${encodeURIComponent(token)}`;
+      let wsBaseUrl = "";
+      if (BACKEND_URL) {
+        wsBaseUrl = BACKEND_URL.replace(/^http/, "ws");
+      } else {
+        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        wsBaseUrl = `${protocol}//${window.location.host}`;
+      }
+      const url = `${wsBaseUrl}/ws/rooms/${encodeURIComponent(normalizedCode)}/?token=${encodeURIComponent(token)}`;
       const ws = new WebSocket(url);
       socketRef.current = ws;
 

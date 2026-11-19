@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { API_BASE } from "../../../lib/constants";
 
 interface ShareCardProps {
   roomCode: string;
@@ -8,7 +9,7 @@ export function ShareCard({ roomCode }: ShareCardProps) {
   const [copied, setCopied] = useState(false);
 
   const cleanCode = roomCode.trim().toUpperCase();
-  const shareImageUrl = `/api/share/${cleanCode}.png`;
+  const shareImageUrl = `${API_BASE}/share/${cleanCode}.png`;
   const sharePageUrl = `${window.location.origin}/s/${cleanCode}/`;
 
   const shareText = `We just played Spot the Bot! Can you spot the AI hiding among human players?`;

@@ -12,6 +12,8 @@ venv/
 htmlcov/
 db.sqlite3
 db.sqlite3-journal
+staticfiles/
+backend/staticfiles/
 
 # Node / Frontend
 frontend/node_modules/
