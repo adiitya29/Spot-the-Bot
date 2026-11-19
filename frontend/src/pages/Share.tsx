@@ -43,12 +43,6 @@ export function Share() {
         >
           Play with Friends (Free)
         </Link>
-        <Link
-          to="/replays"
-          className="flex min-h-11 w-full items-center justify-center rounded-xl border border-slate-700 bg-slate-800/80 px-4 text-xs font-bold text-slate-300 transition hover:bg-slate-700"
-        >
-          Play Solo &ldquo;Guess the Bot&rdquo; Replays &rarr;
-        </Link>
       </div>
     </main>
   );

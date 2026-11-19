@@ -19,11 +19,6 @@ test.describe("Spot the Bot E2E Smoke & Mobile Suite", () => {
     // Check join room form inputs
     const roomCodeInput = page.getByLabel("Room code");
     await expect(roomCodeInput).toBeVisible();
-
-    // Verify solo replay link banner is visible
-    const replayLink = page.locator('a[href="/replays"]');
-    await expect(replayLink).toBeVisible();
-    await expect(replayLink).toContainText(/play solo/i);
   });
 
   test("navigates to replays gallery and verifies deception stats banner", async ({ page }) => {

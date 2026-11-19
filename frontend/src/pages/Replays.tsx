@@ -42,9 +42,9 @@ export function Replays() {
         <div>
           <div className="flex items-center gap-2">
             <span className="rounded-full bg-purple-500/15 px-2.5 py-0.5 text-xs font-bold text-purple-300">
-              SOLO MODE
+              REPLAYS
             </span>
-            <span className="text-xs font-semibold text-slate-400">Play Solo vs AI</span>
+            <span className="text-xs font-semibold text-slate-400">Match Archive</span>
           </div>
           <h1 className="mt-1 text-2xl font-black tracking-tight text-white sm:text-3xl">
             Guess The Bot
@@ -67,7 +67,7 @@ export function Replays() {
             to="/"
             className="flex min-h-10 items-center rounded-xl bg-teal-500 px-4 text-xs font-bold text-slate-950 transition hover:bg-teal-400"
           >
-            Play Multiplayer
+            Back to Home
           </Link>
         </div>
       </header>
