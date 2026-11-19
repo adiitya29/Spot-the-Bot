@@ -55,3 +55,21 @@ def test_get_llm_client_returns_provider_when_configured() -> None:
         assert isinstance(client, ProviderLLMClient)
         assert client.provider == "openai"
         assert client.model == "gpt-4o-mini"
+
+
+def test_get_llm_client_returns_groq_default_model() -> None:
+    with override_settings(LLM_PROVIDER="groq", LLM_API_KEY="gsk_test", LLM_MODEL=""):
+        client = get_llm_client()
+        assert isinstance(client, ProviderLLMClient)
+        assert client.provider == "groq"
+        assert client.model == "llama-3.3-70b-versatile"
+
+
+def test_get_llm_client_returns_groq_custom_model() -> None:
+    with override_settings(
+        LLM_PROVIDER="groq", LLM_API_KEY="gsk_test", LLM_MODEL="llama-3.1-8b-instant"
+    ):
+        client = get_llm_client()
+        assert isinstance(client, ProviderLLMClient)
+        assert client.provider == "groq"
+        assert client.model == "llama-3.1-8b-instant"

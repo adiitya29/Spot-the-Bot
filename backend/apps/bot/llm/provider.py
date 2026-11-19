@@ -38,8 +38,14 @@ class ProviderLLMClient(LLMClient):
     ) -> str:
         async with httpx.AsyncClient(timeout=timeout) as client:
             try:
-                if self.provider in ("openai", "openrouter"):
-                    url = self.base_url or "https://api.openai.com/v1/chat/completions"
+                if self.provider in ("openai", "openrouter", "groq"):
+                    if self.base_url:
+                        url = self.base_url
+                    elif self.provider == "groq":
+                        url = "https://api.groq.com/openai/v1/chat/completions"
+                    else:
+                        url = "https://api.openai.com/v1/chat/completions"
+
                     messages = []
                     if system_prompt:
                         messages.append({"role": "system", "content": system_prompt})
@@ -115,11 +121,23 @@ class ProviderLLMClient(LLMClient):
 
 def get_llm_client() -> LLMClient:
     """Return configured LLM client instance (FakeLLMClient if provider is 'fake' or unset)."""
-    provider = getattr(settings, "LLM_PROVIDER", "fake")
+    provider = getattr(settings, "LLM_PROVIDER", "fake").lower()
     api_key = getattr(settings, "LLM_API_KEY", "")
-    model = getattr(settings, "LLM_MODEL", "fake")
+    model = getattr(settings, "LLM_MODEL", "")
 
     if provider == "fake" or not api_key:
         return FakeLLMClient()
+
+    if not model or model == "fake":
+        if provider == "groq":
+            model = "llama-3.3-70b-versatile"
+        elif provider in ("openai", "openrouter"):
+            model = "gpt-4o-mini"
+        elif provider in ("gemini", "google"):
+            model = "gemini-2.0-flash"
+        elif provider == "anthropic":
+            model = "claude-3-5-haiku-20241022"
+        else:
+            model = "default"
 
     return ProviderLLMClient(provider=provider, api_key=api_key, model=model)

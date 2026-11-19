@@ -71,6 +71,36 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgres://spotbot:spotbot@postgres:5432/spotbot}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/1}
+      LLM_PROVIDER: ${LLM_PROVIDER:-fake}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-fake}
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+      target: dev
+    command: celery -A config worker --loglevel=info -c 4
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-insecure-secret-key-change-in-prod}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-True}
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings.dev}
+      DATABASE_URL: ${DATABASE_URL:-postgres://spotbot:spotbot@postgres:5432/spotbot}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/1}
+      LLM_PROVIDER: ${LLM_PROVIDER:-fake}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-fake}
+      BOT_ENABLED: ${BOT_ENABLED:-True}
+      BOT_MAX_CALLS_PER_ROUND: ${BOT_MAX_CALLS_PER_ROUND:-25}
+      BOT_DAILY_CALLS_PER_IP: ${BOT_DAILY_CALLS_PER_IP:-200}
     volumes:
       - ./backend:/app
     depends_on:

@@ -200,9 +200,9 @@ docker compose -f docker-compose.prod.yml up --build -d
 | `FRONTEND_ORIGIN` | `http://localhost:5173` | Allowed frontend origin for CORS/CSRF |
 | `CSRF_TRUSTED_ORIGINS` | Auto-configured | Trusted origins for CSRF POST requests |
 | `NUM_PROXIES` | `1` | Number of reverse proxies in front of Daphne (for IP resolution) |
-| `LLM_PROVIDER` | `fake` | LLM provider: `fake`, `gemini`, `anthropic`, or `openai` |
-| `LLM_API_KEY` | `""` | API key for LLM provider |
-| `LLM_MODEL` | `gemini-2.0-flash` | Model identifier string |
+| `LLM_PROVIDER` | `fake` | LLM provider: `fake`, `groq`, `gemini`, `anthropic`, or `openai` |
+| `LLM_API_KEY` | `""` | API key for LLM provider (e.g. Groq `gsk_...`) |
+| `LLM_MODEL` | `llama-3.3-70b-versatile` | Model identifier string (e.g. `llama-3.3-70b-versatile`, `llama-3.1-8b-instant`) |
 | `BOT_ENABLED` | `True` | Toggle bot engine generation |
 | `SENTRY_DSN` | `""` | Sentry project DSN for error reporting |
 | `SECURE_SSL_REDIRECT` | `True` (prod) | Force HTTPS redirection |
