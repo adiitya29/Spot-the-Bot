@@ -202,43 +202,72 @@ export function Landing() {
             </form>
           </section>
 
-          <section className="md:col-span-5 rounded-3xl border border-white/10 bg-slate-900/60 backdrop-blur-xl p-6 sm:p-8 shadow-2xl shadow-indigo-950/30 hover:border-white/15 transition-all">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold tracking-tight text-white">Join with Code</h2>
-              <span className="text-xs font-medium text-indigo-400/80 bg-indigo-500/10 px-2.5 py-1 rounded-full border border-indigo-500/20">
-                Join Match
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 mb-4">
-              Have a 6-character room code from a friend? Enter it below to join the lobby.
-            </p>
-            <form onSubmit={handleJoinNavigate} className="space-y-3">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={joinCode}
-                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                  maxLength={ROOM_CODE_LENGTH}
-                  placeholder="ABC234"
-                  aria-label="Room code"
-                  className="min-h-12 flex-1 rounded-xl border border-slate-700 bg-slate-950/80 px-4 font-mono text-base tracking-widest text-white uppercase placeholder:tracking-normal placeholder:text-slate-500 focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20 focus:outline-none transition-all"
-                />
-                <button
-                  type="submit"
-                  className="min-h-12 rounded-xl border border-slate-700 bg-slate-800/90 px-6 text-sm font-bold text-white transition-all hover:bg-slate-700 hover:border-slate-600 active:scale-[0.98]"
-                >
-                  Join
-                </button>
+          {/* Join with Code (5 cols) */}
+          <section className="md:col-span-5 flex flex-col justify-between rounded-3xl border border-white/10 bg-slate-900/60 backdrop-blur-xl p-6 sm:p-8 shadow-2xl shadow-indigo-950/30 hover:border-white/15 transition-all">
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold tracking-tight text-white">Join with Code</h2>
+                <span className="text-xs font-semibold text-teal-400 bg-teal-500/10 px-3 py-1 rounded-full border border-teal-500/20">
+                  Join Match
+                </span>
               </div>
-              {joinError ? (
-                <p
-                  role="alert"
-                  className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2 text-xs font-medium text-rose-300"
-                >
-                  {joinError}
-                </p>
-              ) : null}
-            </form>
+
+              <form onSubmit={handleJoinNavigate} className="space-y-4">
+                <div>
+                  <label
+                    htmlFor="join-room-code"
+                    className="block text-xs font-semibold tracking-wide text-slate-300 uppercase"
+                  >
+                    Room Code
+                  </label>
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <input
+                      id="join-room-code"
+                      type="text"
+                      value={joinCode}
+                      onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                      maxLength={ROOM_CODE_LENGTH}
+                      placeholder="ABC234"
+                      aria-label="Room code"
+                      className="min-h-12 h-12 flex-1 rounded-xl border border-white/10 bg-black/50 px-4 font-mono text-base tracking-widest text-white uppercase placeholder:tracking-normal placeholder:text-slate-500 shadow-inner focus:border-teal-400 focus:bg-slate-950 focus:ring-1 focus:ring-teal-400/40 focus:outline-none transition-all"
+                    />
+                    <button
+                      type="submit"
+                      className="min-h-12 h-12 shrink-0 rounded-xl bg-gradient-to-r from-teal-400 via-emerald-400 to-teal-500 px-6 text-sm font-bold text-slate-950 shadow-md shadow-teal-500/20 transition-all hover:brightness-105 active:scale-[0.98]"
+                    >
+                      Join
+                    </button>
+                  </div>
+                  <p className="mt-2 text-xs text-slate-400">
+                    Have a 6-character room code from a friend? Enter it above.
+                  </p>
+                </div>
+
+                {joinError ? (
+                  <p
+                    role="alert"
+                    className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-xs font-medium text-rose-300"
+                  >
+                    {joinError}
+                  </p>
+                ) : null}
+              </form>
+            </div>
+
+            <div className="mt-6 space-y-2.5 rounded-2xl border border-white/5 bg-black/40 p-4 text-xs text-slate-300 shadow-inner">
+              <div className="flex items-center gap-2 text-slate-300">
+                <span className="text-teal-400 font-bold">✓</span>
+                <span>Instant guest play — no signup required</span>
+              </div>
+              <div className="flex items-center gap-2 text-slate-300">
+                <span className="text-teal-400 font-bold">✓</span>
+                <span>Works on all phone and desktop browsers</span>
+              </div>
+              <div className="flex items-center gap-2 text-slate-300">
+                <span className="text-teal-400 font-bold">✓</span>
+                <span>Synced live countdowns and private voting</span>
+              </div>
+            </div>
           </section>
         </div>
       </div>

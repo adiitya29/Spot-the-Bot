@@ -105,7 +105,7 @@ export function Join() {
           </div>
         ) : room ? (
           <>
-            <div className="mt-5 space-y-2.5 rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-xs text-slate-300">
+            <div className="mt-5 space-y-3 rounded-2xl border border-white/10 bg-black/40 p-4 text-xs text-slate-300 shadow-inner">
               <div className="flex items-center justify-between">
                 <span className="text-slate-400">Seats Filled</span>
                 <span className="font-semibold text-white">
@@ -114,9 +114,11 @@ export function Join() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-400">Status</span>
-                <span className="font-mono font-bold text-teal-300 uppercase">{room.status}</span>
+                <span className="rounded-md border border-teal-500/30 bg-teal-500/15 px-2.5 py-0.5 font-mono text-[11px] font-bold text-teal-300 uppercase">
+                  {room.status}
+                </span>
               </div>
-              <p className="border-t border-slate-800/80 pt-2.5 text-slate-400 leading-relaxed">
+              <p className="border-t border-white/5 pt-2.5 text-slate-400 leading-relaxed">
                 {room.allow_replay_use
                   ? "Privacy notice: Host enabled anonymized public replays for this room."
                   : "Privacy notice: Public replays are disabled for this room."}
@@ -147,7 +149,7 @@ export function Join() {
                     minLength={NICKNAME_MIN_LENGTH}
                     maxLength={NICKNAME_MAX_LENGTH}
                     placeholder="2–20 characters"
-                    className="mt-1.5 min-h-12 w-full rounded-xl border border-slate-700 bg-slate-950/80 px-4 text-base text-white placeholder:text-slate-500 focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20 focus:outline-none transition-all"
+                    className="mt-1.5 min-h-12 w-full rounded-xl border border-white/10 bg-black/50 px-4 text-base text-white placeholder:text-slate-500 shadow-inner focus:border-teal-400 focus:bg-slate-950 focus:ring-1 focus:ring-teal-400/40 focus:outline-none transition-all"
                   />
                 </div>
 
