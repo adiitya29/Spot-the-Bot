@@ -176,3 +176,7 @@ def claim_due_deadlines(
     finally:
         if should_close:
             client.close()
+
+
+# Backward compatibility alias for tasks
+advance_expired_rounds = claim_due_deadlines

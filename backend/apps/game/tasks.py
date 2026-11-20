@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from celery import shared_task
 
-from apps.game.scheduler import advance_expired_rounds
+from apps.game.scheduler import claim_due_deadlines, reconcile_active_deadlines
 
 
 @shared_task(name="apps.game.tasks.advance_due_rounds_task")
 def advance_due_rounds_task() -> int:
     """Periodic Celery task fallback to advance any expired game round deadlines."""
-    return advance_expired_rounds()
+    reconcile_active_deadlines()
+    return claim_due_deadlines()

@@ -9,6 +9,7 @@ from apps.common.views import health_check
 from apps.replays.views import OpenGraphShareView
 
 urlpatterns = [
+    path("", health_check, name="root-health-check"),
     path("admin/", admin.site.urls),
     path("api/health/", health_check, name="health-check"),
     path("api/rooms/", include("apps.rooms.urls")),
