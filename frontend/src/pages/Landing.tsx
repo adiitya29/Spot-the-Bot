@@ -220,25 +220,17 @@ export function Landing() {
                   >
                     Room Code
                   </label>
-                  <div className="mt-1.5 flex items-center gap-2">
-                    <input
-                      id="join-room-code"
-                      type="text"
-                      value={joinCode}
-                      onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                      maxLength={ROOM_CODE_LENGTH}
-                      placeholder="ABC234"
-                      aria-label="Room code"
-                      className="min-h-12 h-12 flex-1 rounded-xl border border-white/10 bg-black/50 px-4 font-mono text-base tracking-widest text-white uppercase placeholder:tracking-normal placeholder:text-slate-500 shadow-inner focus:border-teal-400 focus:bg-slate-950 focus:ring-1 focus:ring-teal-400/40 focus:outline-none transition-all"
-                    />
-                    <button
-                      type="submit"
-                      className="min-h-12 h-12 shrink-0 rounded-xl bg-gradient-to-r from-teal-400 via-emerald-400 to-teal-500 px-6 text-sm font-bold text-slate-950 shadow-md shadow-teal-500/20 transition-all hover:brightness-105 active:scale-[0.98]"
-                    >
-                      Join
-                    </button>
-                  </div>
-                  <p className="mt-2 text-xs text-slate-400">
+                  <input
+                    id="join-room-code"
+                    type="text"
+                    value={joinCode}
+                    onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                    maxLength={ROOM_CODE_LENGTH}
+                    placeholder="ABC234"
+                    aria-label="Room code"
+                    className="mt-1.5 min-h-12 h-12 w-full rounded-xl border border-white/10 bg-black/50 px-4 text-center font-mono text-lg font-bold tracking-[0.25em] text-white uppercase placeholder:tracking-normal placeholder:font-normal placeholder:text-slate-500 shadow-inner focus:border-teal-400 focus:bg-slate-950 focus:ring-1 focus:ring-teal-400/40 focus:outline-none transition-all"
+                  />
+                  <p className="mt-2 text-center text-xs text-slate-400">
                     Have a 6-character room code from a friend? Enter it above.
                   </p>
                 </div>
@@ -246,11 +238,18 @@ export function Landing() {
                 {joinError ? (
                   <p
                     role="alert"
-                    className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-xs font-medium text-rose-300"
+                    className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-center text-xs font-medium text-rose-300"
                   >
                     {joinError}
                   </p>
                 ) : null}
+
+                <button
+                  type="submit"
+                  className="min-h-12 w-full rounded-xl bg-gradient-to-r from-teal-400 via-emerald-400 to-teal-500 px-6 py-3 text-base font-bold text-slate-950 shadow-lg shadow-teal-500/20 transition-all hover:shadow-teal-400/30 hover:brightness-105 active:scale-[0.98]"
+                >
+                  Join Room
+                </button>
               </form>
             </div>
 
