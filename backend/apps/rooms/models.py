@@ -34,7 +34,7 @@ def default_room_config() -> dict[str, Any]:
     return {
         "rounds": 3,
         "phase_durations": dict(DEFAULT_PHASE_DURATIONS),
-        "min_humans": int(getattr(settings, "MIN_HUMANS_DEFAULT", 4)),
+        "min_humans": int(getattr(settings, "MIN_HUMANS_DEFAULT", 3)),
         "allow_replay_use": False,
     }
 
@@ -72,7 +72,7 @@ class Room(models.Model):
     @property
     def min_humans(self) -> int:
         """Minimum connected human players required to start a game."""
-        return int(self.config.get("min_humans", getattr(settings, "MIN_HUMANS_DEFAULT", 4)))
+        return int(self.config.get("min_humans", getattr(settings, "MIN_HUMANS_DEFAULT", 3)))
 
     @property
     def allow_replay_use(self) -> bool:

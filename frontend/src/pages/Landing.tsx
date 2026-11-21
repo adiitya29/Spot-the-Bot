@@ -85,7 +85,7 @@ export function Landing() {
             Spot the Bot
           </h1>
           <p className="mt-3 text-sm sm:text-base max-w-xl mx-auto text-slate-300 leading-relaxed">
-            Chat under random aliases with 4–7 friends. One player in the room is secretly an AI
+            Chat under random aliases with 3–7 friends. One player in the room is secretly an AI
             blending in.
           </p>
         </header>

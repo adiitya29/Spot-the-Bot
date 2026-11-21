@@ -79,6 +79,22 @@ export class ApiError extends Error {
   }
 }
 
+function findFirstErrorDetail(value: unknown): string | null {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findFirstErrorDetail(item);
+      if (found) return found;
+    }
+  } else if (typeof value === "object" && value !== null) {
+    for (const nested of Object.values(value)) {
+      const found = findFirstErrorDetail(nested);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 async function parseError(response: Response): Promise<ApiError> {
   let code = "request_failed";
   let detail = `Request failed (${response.status})`;
@@ -89,14 +105,11 @@ async function parseError(response: Response): Promise<ApiError> {
     }
     if (typeof body.detail === "string") {
       detail = body.detail;
-    } else if (Array.isArray(body.nickname) && typeof body.nickname[0] === "string") {
-      code = "validation_error";
-      detail = body.nickname[0];
-    } else if (typeof body === "object" && body !== null) {
-      const firstValue = Object.values(body)[0];
-      if (Array.isArray(firstValue) && typeof firstValue[0] === "string") {
+    } else {
+      const extracted = findFirstErrorDetail(body);
+      if (extracted) {
         code = "validation_error";
-        detail = firstValue[0];
+        detail = extracted;
       }
     }
   } catch {
