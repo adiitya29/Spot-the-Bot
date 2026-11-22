@@ -10,7 +10,6 @@ from uuid import UUID
 
 from channels.db import database_sync_to_async
 from channels.security.websocket import OriginValidator
-from django.conf import settings
 
 from apps.rooms.codes import normalize_room_code
 from apps.rooms.models import Player, RoomStatus

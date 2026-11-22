@@ -57,7 +57,8 @@ class RoomConfigInputSerializer(serializers.Serializer):
     phase_durations = PhaseDurationsSerializer(required=False)
 
     def validate_min_humans(self, value: int) -> int:
-        min_allowed = int(getattr(settings, "MIN_HUMANS_MIN", getattr(settings, "MIN_HUMANS_DEFAULT", 3)))
+        default_min = getattr(settings, "MIN_HUMANS_DEFAULT", 3)
+        min_allowed = int(getattr(settings, "MIN_HUMANS_MIN", default_min))
         max_allowed = int(getattr(settings, "MAX_HUMANS_DEFAULT", 7))
         if value < min_allowed or value > max_allowed:
             raise serializers.ValidationError(
