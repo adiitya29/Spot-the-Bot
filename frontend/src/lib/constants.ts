@@ -1,7 +1,14 @@
+const defaultProdBackend = "https://spot-the-bot-o8zl.onrender.com";
+
 const envBackendUrl = (
   (typeof import.meta !== "undefined" && import.meta.env
     ? import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL
-    : "") || ""
+    : "") ||
+  (typeof window !== "undefined" &&
+  window.location.hostname !== "localhost" &&
+  window.location.hostname !== "127.0.0.1"
+    ? defaultProdBackend
+    : "")
 ).trim();
 
 export const BACKEND_URL = envBackendUrl.replace(/\/+$/, "");

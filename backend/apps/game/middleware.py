@@ -29,19 +29,17 @@ class WSAuthContext:
 
 
 class DynamicOriginValidator:
-    """Validate WebSocket Origin header dynamically against ALLOWED_HOSTS and FRONTEND_ORIGIN."""
+    """Validate WebSocket Origin header.
+    
+    Since multiplayer room WebSockets strictly require a cryptographic HMAC-signed bearer
+    token (no cookie or ambient credentials), permit all frontend origins (*).
+    """
 
     def __init__(self, application: Any) -> None:
         self.application = application
 
     async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> Any:
-        allowed: list[str] = list(getattr(settings, "ALLOWED_HOSTS", []))
-        frontend_origin = getattr(settings, "FRONTEND_ORIGIN", "")
-        if frontend_origin:
-            allowed.append(frontend_origin)
-        if getattr(settings, "DEBUG", False) and not allowed:
-            allowed = ["localhost", "127.0.0.1", "[::1]"]
-        validator = OriginValidator(self.application, allowed)
+        validator = OriginValidator(self.application, ["*"])
         return await validator(scope, receive, send)
 
 

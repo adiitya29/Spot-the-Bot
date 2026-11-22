@@ -29,6 +29,11 @@ export default defineConfig({
       },
     },
   },
+  preview: {
+    host: "0.0.0.0",
+    port: parseInt(nodeEnv.PORT ?? "5173", 10),
+    allowedHosts: true,
+  },
   test: {
     environment: "jsdom",
     globals: true,

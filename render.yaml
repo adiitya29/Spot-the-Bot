@@ -35,6 +35,16 @@ services:
       - key: SECURE_SSL_REDIRECT
         value: "true"
 
+  - type: static
+    name: spot-the-bot-frontend
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
 databases:
   - name: spot-the-bot-db
     databaseName: spotbot
