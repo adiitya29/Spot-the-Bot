@@ -10,6 +10,7 @@ from uuid import UUID
 
 from channels.db import database_sync_to_async
 from channels.security.websocket import OriginValidator
+from django.conf import settings
 
 from apps.rooms.codes import normalize_room_code
 from apps.rooms.models import Player, RoomStatus
@@ -28,17 +29,34 @@ class WSAuthContext:
 
 
 class DynamicOriginValidator:
-    """Validate WebSocket Origin header.
-
-    Since multiplayer room WebSockets strictly require a cryptographic HMAC-signed bearer
-    token (no cookie or ambient credentials), permit all frontend origins (*).
-    """
+    """Validate WebSocket Origin header dynamically against configured trusted origins."""
 
     def __init__(self, application: Any) -> None:
         self.application = application
 
     async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> Any:
-        validator = OriginValidator(self.application, ["*"])
+        allowed: list[str] = list(getattr(settings, "ALLOWED_HOSTS", []))
+        frontend_origin = getattr(settings, "FRONTEND_ORIGIN", "")
+        if frontend_origin:
+            allowed.append(frontend_origin)
+        for origin in getattr(settings, "CORS_ALLOWED_ORIGINS", []):
+            if origin:
+                if "*." in origin:
+                    domain = origin.split("*.", 1)[1]
+                    allowed.append(f".{domain}")
+                else:
+                    allowed.append(origin)
+        for origin in getattr(settings, "CSRF_TRUSTED_ORIGINS", []):
+            if origin:
+                if "*." in origin:
+                    domain = origin.split("*.", 1)[1]
+                    allowed.append(f".{domain}")
+                else:
+                    allowed.append(origin)
+        allowed.extend([".vercel.app", ".onrender.com"])
+        if getattr(settings, "DEBUG", False) and not allowed:
+            allowed = ["localhost", "127.0.0.1", "[::1]"]
+        validator = OriginValidator(self.application, allowed)
         return await validator(scope, receive, send)
 
 
