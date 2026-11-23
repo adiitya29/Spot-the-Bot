@@ -18,7 +18,7 @@ import type {
   WsEnvelope,
 } from "./types";
 
-const PING_INTERVAL_MS = 20_000;
+const PING_INTERVAL_MS = 10_000;
 const MAX_BACKOFF_MS = 15_000;
 const CLOSE_REPLACED = 4001;
 const CLOSE_AUTH_FAILED = 4401;
@@ -250,10 +250,21 @@ export function useRoomSocket(roomCode: string, token: string | null) {
       };
     };
 
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible" && !disposed) {
+        if (!socketRef.current || socketRef.current.readyState === WebSocket.CLOSED) {
+          attempt = 0;
+          connect();
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     connect();
 
     return () => {
       disposed = true;
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       clearTimers();
       socketRef.current?.close(1000, "unmount");
       socketRef.current = null;
