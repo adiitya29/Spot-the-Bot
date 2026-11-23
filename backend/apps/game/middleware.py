@@ -29,7 +29,7 @@ class WSAuthContext:
 
 class DynamicOriginValidator:
     """Validate WebSocket Origin header.
-    
+
     Since multiplayer room WebSockets strictly require a cryptographic HMAC-signed bearer
     token (no cookie or ambient credentials), permit all frontend origins (*).
     """
