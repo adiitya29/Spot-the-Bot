@@ -250,11 +250,32 @@ export function useRoomSocket(roomCode: string, token: string | null) {
       };
     };
 
+    const requestSync = () => {
+      if (socketRef.current?.readyState === WebSocket.OPEN) {
+        socketRef.current.send(
+          JSON.stringify({
+            v: PROTOCOL_VERSION,
+            id: nextClientId(),
+            type: "sync",
+            payload: {},
+          }),
+        );
+      }
+    };
+
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible" && !disposed) {
-        if (!socketRef.current || socketRef.current.readyState === WebSocket.CLOSED) {
+        if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+          clearTimers();
+          try {
+            socketRef.current?.close();
+          } catch {
+            // Ignore
+          }
           attempt = 0;
           connect();
+        } else {
+          requestSync();
         }
       }
     };

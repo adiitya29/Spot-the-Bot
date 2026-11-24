@@ -231,7 +231,7 @@ def _create_round_with_seats(
     human_list = (
         humans
         if humans is not None
-        else list(room.players.filter(is_bot=False, connected=True).order_by("joined_at"))
+        else list(room.players.filter(is_bot=False).order_by("joined_at"))
     )
     if not human_list:
         human_list = list(room.players.filter(is_bot=False).order_by("joined_at"))
@@ -307,6 +307,11 @@ def start_game(
                 f"Need at least {room.min_humans} connected players to start.",
             )
 
+        # Include ALL humans who joined the room (not just currently-connected)
+        # so that a player whose WebSocket briefly dropped isn't excluded
+        # from the round.  The min_humans gate above ensures enough are online.
+        all_humans = list(room.players.filter(is_bot=False).order_by("joined_at"))
+
         last_game_index = (
             room.rounds.order_by("-game_index").values_list("game_index", flat=True).first() or 0
         )
@@ -322,7 +327,7 @@ def start_game(
             game_index=game_index,
             round_number=1,
             current_now=current_now,
-            humans=connected_humans,
+            humans=all_humans,
             rng=rng,
         )
 
@@ -332,13 +337,6 @@ def start_game(
 
         def _after_commit() -> None:
             schedule_phase_deadline(round_obj.id, RoundPhase.ANSWER, ends_at)
-            _group_send_room(
-                room.code,
-                {
-                    "type": "room.round_started",
-                    "envelope": envelope,
-                },
-            )
 
         transaction.on_commit(_after_commit)
         return envelope

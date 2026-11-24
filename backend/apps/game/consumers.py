@@ -394,9 +394,26 @@ class RoomConsumer(AsyncWebsocketConsumer):
 
         if msg_type == "start_game":
             try:
-                await database_sync_to_async(start_game)(self.room_id, self.player_id)
+                envelope = await database_sync_to_async(start_game)(self.room_id, self.player_id)
             except GameTransitionError as exc:
                 await self._send_error(exc.code, exc.message)
+                return
+            # Broadcast game start directly from async context (reliable)
+            # instead of relying solely on transaction.on_commit → async_to_sync
+            await self.channel_layer.group_send(
+                self.group_name,
+                {
+                    "type": "room.round_started",
+                    "envelope": envelope,
+                },
+            )
+            return
+
+        if msg_type == "sync":
+            seq, snap_payload = await _build_unicast_snapshot(self.room_id, self.player_id)
+            await self.send(
+                text_data=json.dumps(build_envelope("room_snapshot", snap_payload, seq=seq))
+            )
             return
 
         if msg_type == "submit_answer":
