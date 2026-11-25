@@ -1,7 +1,7 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ApiError, getRoom, joinRoom, saveRoomSession } from "../lib/api";
+import { ApiError, getRoom, joinRoom, saveRoomSession, warmupBackend } from "../lib/api";
 import { NICKNAME_MAX_LENGTH, NICKNAME_MIN_LENGTH, normalizeRoomCode } from "../lib/constants";
 
 export function Join() {
@@ -11,6 +11,10 @@ export function Join() {
 
   const [nickname, setNickname] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    void warmupBackend();
+  }, []);
 
   const roomQuery = useQuery({
     queryKey: ["room", code],
@@ -42,6 +46,9 @@ export function Join() {
 
   function handleJoin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (joinMutation.isPending) {
+      return;
+    }
     const trimmed = nickname.trim();
     if (trimmed.length < NICKNAME_MIN_LENGTH || trimmed.length > NICKNAME_MAX_LENGTH) {
       setErrorMsg(
@@ -94,7 +101,9 @@ export function Join() {
               role="alert"
               className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm font-medium text-rose-300"
             >
-              Room {code} was not found. Check the code and try again.
+              {roomQuery.error instanceof ApiError && roomQuery.error.status !== 404
+                ? roomQuery.error.message
+                : `Room ${code} was not found. Check the code and try again.`}
             </p>
             <Link
               to="/"

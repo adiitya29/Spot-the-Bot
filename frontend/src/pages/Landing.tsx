@@ -1,7 +1,7 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { ApiError, createRoom, saveRoomSession } from "../lib/api";
+import { ApiError, createRoom, saveRoomSession, warmupBackend } from "../lib/api";
 import {
   NICKNAME_MAX_LENGTH,
   NICKNAME_MIN_LENGTH,
@@ -19,6 +19,11 @@ export function Landing() {
   const [allowReplayUse, setAllowReplayUse] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [joinError, setJoinError] = useState<string | null>(null);
+  const [slowCreate, setSlowCreate] = useState(false);
+
+  useEffect(() => {
+    void warmupBackend();
+  }, []);
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -27,6 +32,9 @@ export function Landing() {
         min_humans: minHumans,
         allow_replay_use: allowReplayUse,
       }),
+    onMutate: () => {
+      setSlowCreate(false);
+    },
     onSuccess: (data) => {
       saveRoomSession({
         roomCode: data.code,
@@ -41,13 +49,27 @@ export function Landing() {
       if (err instanceof ApiError) {
         setFormError(err.message);
       } else {
-        setFormError("Unable to create room right now.");
+        setFormError("Unable to create room right now. Please try again.");
       }
+    },
+    onSettled: () => {
+      setSlowCreate(false);
     },
   });
 
+  useEffect(() => {
+    if (!createMutation.isPending) {
+      return;
+    }
+    const timer = window.setTimeout(() => setSlowCreate(true), 3000);
+    return () => window.clearTimeout(timer);
+  }, [createMutation.isPending]);
+
   function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (createMutation.isPending) {
+      return;
+    }
     const trimmed = nickname.trim();
     if (trimmed.length < NICKNAME_MIN_LENGTH || trimmed.length > NICKNAME_MAX_LENGTH) {
       setFormError(
@@ -197,8 +219,17 @@ export function Landing() {
                 disabled={createMutation.isPending}
                 className="min-h-12 w-full rounded-xl bg-gradient-to-r from-teal-400 via-emerald-400 to-teal-500 px-6 py-3 text-base font-bold text-slate-950 shadow-lg shadow-teal-500/20 transition-all hover:shadow-teal-400/30 hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {createMutation.isPending ? "Creating room..." : "Create Room"}
+                {createMutation.isPending
+                  ? slowCreate
+                    ? "Waking up game server..."
+                    : "Creating room..."
+                  : "Create Room"}
               </button>
+              {createMutation.isPending && slowCreate ? (
+                <p role="status" className="text-center text-xs text-slate-400">
+                  Server was idle and is starting up (usually 15–40s on first load)...
+                </p>
+              ) : null}
             </form>
           </section>
 

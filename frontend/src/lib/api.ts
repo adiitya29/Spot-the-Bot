@@ -122,22 +122,151 @@ async function parseError(response: Response): Promise<ApiError> {
   return new ApiError(response.status, code, detail);
 }
 
-async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
-  });
-  if (!response.ok) {
+const DEFAULT_REQUEST_TIMEOUT_MS = 20_000;
+const COLD_START_REQUEST_TIMEOUT_MS = 45_000;
+const TRANSIENT_GATEWAY_STATUSES = new Set([502, 503, 504]);
+const WARMUP_COOLDOWN_MS = 30_000;
+
+let activeWarmup: Promise<void> | null = null;
+let lastWarmupAt = 0;
+
+interface RequestOptions extends RequestInit {
+  timeoutMs?: number;
+  retryOnGatewayError?: boolean;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  const controller = new AbortController();
+  const externalSignal = init.signal;
+  const onExternalAbort = () => controller.abort(externalSignal?.reason);
+  if (externalSignal) {
+    if (externalSignal.aborted) {
+      controller.abort(externalSignal.reason);
+    } else {
+      externalSignal.addEventListener("abort", onExternalAbort, { once: true });
+    }
+  }
+
+  const timer = window.setTimeout(() => controller.abort("timeout"), timeoutMs);
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (controller.signal.aborted && !externalSignal?.aborted) {
+      throw new ApiError(
+        408,
+        "request_timeout",
+        "Server took too long to respond (it may still be waking up). Please try again.",
+      );
+    }
+    throw err;
+  } finally {
+    window.clearTimeout(timer);
+    externalSignal?.removeEventListener("abort", onExternalAbort);
+  }
+}
+
+async function requestJson<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const {
+    timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
+    retryOnGatewayError = false,
+    headers,
+    ...init
+  } = options;
+  const maxAttempts = retryOnGatewayError ? 3 : 1;
+  const deadline = Date.now() + timeoutMs;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const remainingMs = deadline - Date.now();
+    if (remainingMs <= 0) {
+      throw new ApiError(
+        408,
+        "request_timeout",
+        "Server took too long to respond (it may still be waking up). Please try again.",
+      );
+    }
+
+    let response: Response;
+    try {
+      response = await fetchWithTimeout(
+        `${API_BASE}${path}`,
+        {
+          ...init,
+          headers: {
+            "Content-Type": "application/json",
+            ...(headers ?? {}),
+          },
+        },
+        remainingMs,
+      );
+    } catch (err) {
+      // Retry brief connection drops only during pre-boot gateway recovery when time remains.
+      const isTimeout = err instanceof ApiError && err.code === "request_timeout";
+      if (
+        !isTimeout &&
+        retryOnGatewayError &&
+        attempt < maxAttempts &&
+        Date.now() + 2500 < deadline
+      ) {
+        await sleep(2000);
+        continue;
+      }
+      throw err;
+    }
+
+    if (response.ok) {
+      return (await response.json()) as T;
+    }
+
+    if (
+      retryOnGatewayError &&
+      TRANSIENT_GATEWAY_STATUSES.has(response.status) &&
+      attempt < maxAttempts &&
+      Date.now() + 2500 < deadline
+    ) {
+      await sleep(2000);
+      continue;
+    }
+
     throw await parseError(response);
   }
-  return (await response.json()) as T;
+
+  throw new ApiError(503, "service_unavailable", "Server is still starting up. Please try again.");
+}
+
+export function warmupBackend(): Promise<void> {
+  const now = Date.now();
+  if (activeWarmup) {
+    return activeWarmup;
+  }
+  if (now - lastWarmupAt < WARMUP_COOLDOWN_MS) {
+    return Promise.resolve();
+  }
+  lastWarmupAt = now;
+  activeWarmup = requestJson<HealthResponse>("/health/", {
+    cache: "no-store",
+    timeoutMs: COLD_START_REQUEST_TIMEOUT_MS,
+  })
+    .then(() => undefined)
+    .catch(() => undefined)
+    .finally(() => {
+      activeWarmup = null;
+    });
+  return activeWarmup;
 }
 
 export async function fetchHealth(): Promise<HealthResponse> {
-  return requestJson<HealthResponse>("/health/");
+  return requestJson<HealthResponse>("/health/", { timeoutMs: COLD_START_REQUEST_TIMEOUT_MS });
 }
 
 export async function createRoom(
@@ -147,12 +276,17 @@ export async function createRoom(
   return requestJson<CreateRoomResponse>("/rooms/", {
     method: "POST",
     body: JSON.stringify(config ? { nickname, config } : { nickname }),
+    timeoutMs: COLD_START_REQUEST_TIMEOUT_MS,
+    retryOnGatewayError: true,
   });
 }
 
 export async function getRoom(code: string): Promise<RoomPublic> {
   const normalized = normalizeRoomCode(code);
-  return requestJson<RoomPublic>(`/rooms/${encodeURIComponent(normalized)}/`);
+  return requestJson<RoomPublic>(`/rooms/${encodeURIComponent(normalized)}/`, {
+    timeoutMs: COLD_START_REQUEST_TIMEOUT_MS,
+    retryOnGatewayError: true,
+  });
 }
 
 export async function joinRoom(code: string, nickname: string): Promise<JoinRoomResponse> {
@@ -160,6 +294,8 @@ export async function joinRoom(code: string, nickname: string): Promise<JoinRoom
   return requestJson<JoinRoomResponse>(`/rooms/${encodeURIComponent(normalized)}/join/`, {
     method: "POST",
     body: JSON.stringify({ nickname }),
+    timeoutMs: COLD_START_REQUEST_TIMEOUT_MS,
+    retryOnGatewayError: true,
   });
 }
 

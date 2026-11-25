@@ -8,7 +8,7 @@ from sentry_sdk.integrations.django import DjangoIntegration
 from sentry_sdk.integrations.redis import RedisIntegration
 
 from config.settings.base import *  # noqa: F403
-from config.settings.base import REST_FRAMEWORK, SENTRY_DSN, env
+from config.settings.base import REDIS_CACHE_OPTIONS, REST_FRAMEWORK, SENTRY_DSN, env
 
 # Security & Environment Validation
 DEBUG = False
@@ -19,8 +19,15 @@ ALLOWED_HOSTS: list[str] = env.list(
 )
 
 # Database & Cache
+_prod_db = env.db("DATABASE_URL")
+_prod_db["CONN_MAX_AGE"] = env.int("DB_CONN_MAX_AGE", default=60)
+_prod_db["CONN_HEALTH_CHECKS"] = True
+if "postgres" in str(_prod_db.get("ENGINE", "")):
+    _prod_db_options = dict(_prod_db.get("OPTIONS") or {})
+    _prod_db_options.setdefault("connect_timeout", 5)
+    _prod_db["OPTIONS"] = _prod_db_options
 DATABASES = {
-    "default": env.db("DATABASE_URL"),
+    "default": _prod_db,
 }
 
 REDIS_URL = env("REDIS_URL")
@@ -37,6 +44,7 @@ CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
         "LOCATION": REDIS_URL,
+        "OPTIONS": REDIS_CACHE_OPTIONS,
     },
 }
 

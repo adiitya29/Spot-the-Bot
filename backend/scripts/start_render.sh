@@ -4,15 +4,13 @@ set -e
 echo "==> Running database migrations..."
 python manage.py migrate --noinput
 
-echo "==> Seeding initial party game topics..."
-python manage.py seed_topics || true
-
-echo "==> Starting game phase scheduler in background..."
-python manage.py run_scheduler &
+# Defer background workers briefly so Daphne binds $PORT first on cold starts,
+# and use Celery solo pool to stay well within Render free-tier 512 MB RAM.
+echo "==> Scheduling background phase scheduler & Celery worker..."
+(sleep 2 && exec python manage.py run_scheduler) &
 SCHEDULER_PID=$!
 
-echo "==> Starting Celery worker in background..."
-celery -A config worker --loglevel=info -c 2 &
+(sleep 3 && exec celery -A config worker --loglevel=info --pool=solo --without-gossip --without-mingle --without-heartbeat) &
 CELERY_PID=$!
 
 cleanup() {

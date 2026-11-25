@@ -19,6 +19,7 @@ import type {
 } from "./types";
 
 const PING_INTERVAL_MS = 10_000;
+const WS_CONNECT_TIMEOUT_MS = 15_000;
 const MAX_BACKOFF_MS = 15_000;
 const CLOSE_REPLACED = 4001;
 const CLOSE_AUTH_FAILED = 4401;
@@ -53,6 +54,7 @@ export function useRoomSocket(roomCode: string, token: string | null) {
     let attempt = 0;
     let pingTimer: number | null = null;
     let reconnectTimer: number | null = null;
+    let connectTimer: number | null = null;
 
     const clearTimers = () => {
       if (pingTimer !== null) {
@@ -63,12 +65,17 @@ export function useRoomSocket(roomCode: string, token: string | null) {
         window.clearTimeout(reconnectTimer);
         reconnectTimer = null;
       }
+      if (connectTimer !== null) {
+        window.clearTimeout(connectTimer);
+        connectTimer = null;
+      }
     };
 
     const connect = () => {
       if (disposed) {
         return;
       }
+      clearTimers();
       dispatch({ type: "ws_status", status: attempt === 0 ? "connecting" : "reconnecting" });
 
       let wsBaseUrl = "";
@@ -82,7 +89,17 @@ export function useRoomSocket(roomCode: string, token: string | null) {
       const ws = new WebSocket(url);
       socketRef.current = ws;
 
+      connectTimer = window.setTimeout(() => {
+        if (ws.readyState === WebSocket.CONNECTING) {
+          ws.close();
+        }
+      }, WS_CONNECT_TIMEOUT_MS);
+
       ws.onopen = () => {
+        if (connectTimer !== null) {
+          window.clearTimeout(connectTimer);
+          connectTimer = null;
+        }
         attempt = 0;
         pingTimer = window.setInterval(() => {
           if (ws.readyState === WebSocket.OPEN) {
@@ -221,6 +238,10 @@ export function useRoomSocket(roomCode: string, token: string | null) {
       };
 
       ws.onclose = (event: CloseEvent) => {
+        if (connectTimer !== null) {
+          window.clearTimeout(connectTimer);
+          connectTimer = null;
+        }
         if (pingTimer !== null) {
           window.clearInterval(pingTimer);
           pingTimer = null;

@@ -11,6 +11,7 @@ from uuid import UUID
 import redis
 from django.conf import settings
 
+from apps.common.redis import REDIS_SOCKET_OPTIONS
 from apps.game.models import Round, RoundPhase
 
 logger = logging.getLogger(__name__)
@@ -46,7 +47,7 @@ def _resolve_redis(redis_client: redis.Redis | None) -> tuple[redis.Redis | None
     redis_url = getattr(settings, "REDIS_URL", "")
     if not redis_url:
         return None, False
-    return redis.Redis.from_url(redis_url, decode_responses=True), True
+    return redis.Redis.from_url(redis_url, decode_responses=True, **REDIS_SOCKET_OPTIONS), True
 
 
 def schedule_phase_deadline(

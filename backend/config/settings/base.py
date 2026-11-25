@@ -111,6 +111,12 @@ WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
 REDIS_URL: str = env("REDIS_URL")
+REDIS_CACHE_OPTIONS: dict[str, object] = {
+    "socket_connect_timeout": 3.0,
+    "socket_timeout": 3.0,
+    "retry_on_timeout": True,
+    "health_check_interval": 30,
+}
 
 if REDIS_URL:
     CHANNEL_LAYERS = {
@@ -125,6 +131,7 @@ if REDIS_URL:
         "default": {
             "BACKEND": "django.core.cache.backends.redis.RedisCache",
             "LOCATION": REDIS_URL,
+            "OPTIONS": REDIS_CACHE_OPTIONS,
         },
     }
 else:

@@ -12,6 +12,8 @@ from uuid import UUID
 import redis
 from django.conf import settings
 
+from apps.common.redis import REDIS_SOCKET_OPTIONS
+
 _LOCAL_LOCKS_GUARD = threading.Lock()
 _LOCAL_LOCKS: dict[str, threading.RLock] = {}
 
@@ -53,7 +55,7 @@ def room_lock(
             local_lock.release()
         return
 
-    client = redis.Redis.from_url(redis_url, decode_responses=True)
+    client = redis.Redis.from_url(redis_url, decode_responses=True, **REDIS_SOCKET_OPTIONS)
     token = str(uuid.uuid4())
     ttl_ms = max(500, int(ttl_seconds * 1000))
     deadline = time.monotonic() + wait_timeout_seconds
